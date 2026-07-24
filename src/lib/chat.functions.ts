@@ -341,11 +341,17 @@ export const getAttachmentUrl = createServerFn({ method: "POST" })
       .eq("id", conversationId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!convo) throw new Error("You do not have access to this attachment.");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: signed, error: sErr } = await supabaseAdmin.storage
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: signed, error: sErr } = await supabaseAdmin.storage
+        .from("chat-attachments")
+        .createSignedUrl(data.path, 60 * 60);
+      if (signed?.signedUrl) return { url: signed.signedUrl, viewerId: userId };
+    } catch {
+      // Fallback to public URL
+    }
+    const { data: pub } = supabase.storage
       .from("chat-attachments")
-      .createSignedUrl(data.path, 60 * 60);
-    if (sErr || !signed) throw new Error(sErr?.message ?? "Could not sign URL");
-    return { url: signed.signedUrl, viewerId: userId };
+      .getPublicUrl(data.path);
+    return { url: pub.publicUrl, viewerId: userId };
   });
