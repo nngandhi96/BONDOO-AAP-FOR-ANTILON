@@ -17,7 +17,9 @@ export const getMyProfile = createServerFn({ method: "GET" })
       const { data: signed } = await context.supabase.storage
         .from("avatars")
         .createSignedUrl(data.avatar_path, 3600);
-      avatar_url = signed?.signedUrl ?? null;
+      avatar_url =
+        signed?.signedUrl ??
+        context.supabase.storage.from("avatars").getPublicUrl(data.avatar_path).data.publicUrl;
     }
     return { ...data, avatar_url };
   });
@@ -42,7 +44,9 @@ export const getUserProfile = createServerFn({ method: "GET" })
       const { data: signed } = await context.supabase.storage
         .from("avatars")
         .createSignedUrl(row.avatar_path, 3600);
-      avatar_url = signed?.signedUrl ?? null;
+      avatar_url =
+        signed?.signedUrl ??
+        context.supabase.storage.from("avatars").getPublicUrl(row.avatar_path).data.publicUrl;
     }
     return { ...row, avatar_url };
   });
