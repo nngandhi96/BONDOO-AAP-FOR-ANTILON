@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// Bondoo — Cloud Storage Security Rules
+// Buckets:
+//   /users/{uid}/avatar/*   → public-ish avatars (verified users can read)
+//   /users/{uid}/gov_id/*   → private KYC uploads (owner + backend only)
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function isVerified() {
+      return isSignedIn()
+        && request.auth.token.phone_number != null
+        && request.auth.token.gov_id_verified == true;
+    }
+
+    // Avatars — readable by verified users, writable by owner (≤2MB, image only)
+    match /users/{uid}/avatar/{file=**} {
+      allow read: if isOwner(uid) || isVerified();
+      allow write: if isOwner(uid)
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Government ID — private. Owner can upload; only backend reads.
+    match /users/{uid}/gov_id/{file=**} {
+      allow read: if false;   // Cloud Functions use admin SDK
+      allow write: if isOwner(uid)
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf');
+    }
+
+    // Deny everything else by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

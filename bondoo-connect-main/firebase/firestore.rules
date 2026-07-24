@@ -1,0 +1,83 @@
+rules_version = '2';
+
+// Bondoo — Firestore Security Rules
+// Model:
+//   users/{uid}          → profile doc; owner-editable, verified-readable
+//   activities/{id}      → posted meetups; verified users read, owner writes
+//   activities/{id}/rsvps/{uid} → participation; user manages own rsvp
+//   reports/{id}         → safety reports; create-only for verified users
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // "Verified" = phone OTP verified AND Gov-ID approved.
+    // phone_number is set by Firebase Auth after OTP.
+    // gov_id_verified is a custom claim set by a trusted backend
+    // (Cloud Function) after manual/automated ID review.
+    function isVerified() {
+      return isSignedIn()
+        && request.auth.token.phone_number != null
+        && request.auth.token.gov_id_verified == true;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Fields the client is NEVER allowed to write directly.
+    // trust_score & verification flags must be updated by Cloud Functions.
+    function immutableFieldsUnchanged() {
+      return !( request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['trust_score','gov_id_verified','role','created_at']) );
+    }
+
+    // ---------- users/{uid} ----------
+    match /users/{uid} {
+      // Only verified users can browse other profiles.
+      // Owner can always read their own doc (even pre-verification).
+      allow read: if isOwner(uid) || isVerified();
+
+      // Owner creates their own profile on signup.
+      allow create: if isOwner(uid)
+        && request.resource.data.trust_score == 0
+        && request.resource.data.gov_id_verified == false;
+
+      // Only the owner can edit — and cannot touch protected fields.
+      allow update: if isOwner(uid) && immutableFieldsUnchanged();
+
+      // Never allow client deletion — handle via backend.
+      allow delete: if false;
+    }
+
+    // ---------- activities/{id} ----------
+    match /activities/{activityId} {
+      allow read: if isVerified();
+
+      allow create: if isVerified()
+        && request.resource.data.host_uid == request.auth.uid;
+
+      allow update, delete: if isVerified()
+        && resource.data.host_uid == request.auth.uid;
+
+      // ---------- rsvps ----------
+      match /rsvps/{uid} {
+        allow read: if isVerified();
+        allow create, update, delete: if isOwner(uid) && isVerified();
+      }
+    }
+
+    // ---------- reports/{id} ---------- (safety reports)
+    match /reports/{reportId} {
+      // Users cannot read others' reports. Backend/admin only.
+      allow read: if false;
+      allow create: if isVerified()
+        && request.resource.data.reporter_uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}

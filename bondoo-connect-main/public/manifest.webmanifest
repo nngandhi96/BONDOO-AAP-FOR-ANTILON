@@ -1,0 +1,18 @@
+{
+  "name": "Bondoo — Real connections, simple activities",
+  "short_name": "Bondoo",
+  "description": "Anti-loneliness app that connects verified people for simple activities like walks, coffee, and reading.",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF8F0",
+  "theme_color": "#FFF8F0",
+  "categories": ["social", "lifestyle"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
