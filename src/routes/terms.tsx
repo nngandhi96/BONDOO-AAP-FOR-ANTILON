@@ -40,7 +40,7 @@ function TermsPage() {
 
         <div className="mt-8 space-y-6 text-[15px] leading-relaxed text-ink/85">
           <Section title="1. Who can use Bondoo">
-            Bondoo is a proprietary product/unit of MAKE MY VASH (MMV). You must be at least 18 years old and legally able to enter into a
+            Bondoo is a proprietary product/unit of MAKE MY VASH (MMV). You must be at least 14 years old and legally able to enter into a
             contract. Bondoo is a platform for platonic, real-world social
             connection — not a dating service, marketplace, or professional
             network.
