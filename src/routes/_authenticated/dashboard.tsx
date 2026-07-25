@@ -427,7 +427,7 @@ function Dashboard() {
 
       <button
         onClick={() => setShowCreate(true)}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-ink text-background rounded-full pl-5 pr-6 py-4 shadow-xl shadow-ink/25 hover:bg-ink/90 active:scale-[0.98] transition font-semibold"
+        className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-ink text-background rounded-full pl-5 pr-6 py-3.5 shadow-xl shadow-ink/25 hover:bg-ink/90 active:scale-[0.98] transition font-semibold whitespace-nowrap"
       >
         <span className="h-6 w-6 rounded-full bg-brand-orange text-ink flex items-center justify-center text-lg leading-none">
           +
