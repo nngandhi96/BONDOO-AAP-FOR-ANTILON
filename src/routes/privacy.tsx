@@ -34,6 +34,9 @@ function PrivacyPage() {
         <p className="mt-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
           Last updated · 21 July 2026
         </p>
+        <p className="mt-3 text-xs font-semibold text-brand-orange">
+          Bondoo is a proprietary product/unit of MAKE MY VASH (MMV).
+        </p>
 
         <div className="mt-8 space-y-6 text-[15px] leading-relaxed text-ink/85">
           <Section title="1. What we collect">
@@ -119,7 +122,7 @@ function PrivacyPage() {
           </Section>
 
           <Section title="10. Contact">
-            Data controller: Bondoo. Email{" "}
+            Data controller: Bondoo (a proprietary product/unit of MAKE MY VASH (MMV)). Email{" "}
             <a className="underline" href="mailto:privacy@bondoo.app">
               privacy@bondoo.app
             </a>{" "}
@@ -127,13 +130,18 @@ function PrivacyPage() {
           </Section>
         </div>
 
-        <div className="mt-10 flex gap-6 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-          <Link to="/terms" className="hover:text-ink">
-            Terms of Service
-          </Link>
-          <Link to="/" className="hover:text-ink">
-            Home
-          </Link>
+        <div className="mt-10 pt-6 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-muted-foreground">
+          <div className="flex gap-6 uppercase tracking-[0.22em]">
+            <Link to="/terms" className="hover:text-ink">
+              Terms of Service
+            </Link>
+            <Link to="/" className="hover:text-ink">
+              Home
+            </Link>
+          </div>
+          <p className="text-[11px] font-medium text-ink/70">
+            Bondoo is a proprietary product/unit of MAKE MY VASH (MMV).
+          </p>
         </div>
       </div>
     </main>

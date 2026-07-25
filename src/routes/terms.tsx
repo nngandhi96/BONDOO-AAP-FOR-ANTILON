@@ -34,10 +34,13 @@ function TermsPage() {
         <p className="mt-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
           Last updated · 21 July 2026
         </p>
+        <p className="mt-3 text-xs font-semibold text-brand-orange">
+          Bondoo is a proprietary product/unit of MAKE MY VASH (MMV).
+        </p>
 
         <div className="mt-8 space-y-6 text-[15px] leading-relaxed text-ink/85">
           <Section title="1. Who can use Bondoo">
-            You must be at least 18 years old and legally able to enter into a
+            Bondoo is a proprietary product/unit of MAKE MY VASH (MMV). You must be at least 18 years old and legally able to enter into a
             contract. Bondoo is a platform for platonic, real-world social
             connection — not a dating service, marketplace, or professional
             network.
@@ -111,13 +114,18 @@ function TermsPage() {
           </Section>
         </div>
 
-        <div className="mt-10 flex gap-6 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-          <Link to="/privacy" className="hover:text-ink">
-            Privacy Policy
-          </Link>
-          <Link to="/" className="hover:text-ink">
-            Home
-          </Link>
+        <div className="mt-10 pt-6 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-muted-foreground">
+          <div className="flex gap-6 uppercase tracking-[0.22em]">
+            <Link to="/privacy" className="hover:text-ink">
+              Privacy Policy
+            </Link>
+            <Link to="/" className="hover:text-ink">
+              Home
+            </Link>
+          </div>
+          <p className="text-[11px] font-medium text-ink/70">
+            Bondoo is a proprietary product/unit of MAKE MY VASH (MMV).
+          </p>
         </div>
       </div>
     </main>

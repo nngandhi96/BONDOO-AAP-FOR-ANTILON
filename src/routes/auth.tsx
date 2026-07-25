@@ -264,17 +264,22 @@ function AuthScreen() {
           </button>
         </p>
 
-        <p className="mt-auto pt-8 text-center text-[11px] text-muted-foreground leading-relaxed">
-          By continuing you agree to Bondoo's{" "}
-          <Link to="/terms" className="underline underline-offset-2">
-            Terms
-          </Link>{" "}
-          &{" "}
-          <Link to="/privacy" className="underline underline-offset-2">
-            Privacy Policy
-          </Link>
-          .
-        </p>
+        <div className="mt-auto pt-8 text-center space-y-1">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            By continuing you agree to Bondoo's{" "}
+            <Link to="/terms" className="underline underline-offset-2">
+              Terms
+            </Link>{" "}
+            &{" "}
+            <Link to="/privacy" className="underline underline-offset-2">
+              Privacy Policy
+            </Link>
+            .
+          </p>
+          <p className="text-[10px] text-muted-foreground/80">
+            Bondoo is a proprietary product/unit of MAKE MY VASH (MMV).
+          </p>
+        </div>
       </div>
     </main>
   );

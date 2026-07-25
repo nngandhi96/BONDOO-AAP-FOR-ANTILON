@@ -476,6 +476,9 @@ function Profile() {
             Privacy
           </Link>
         </div>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+          Bondoo is a proprietary product/unit of MAKE MY VASH (MMV).
+        </p>
 
         <div className="pt-6 mt-6 border-t border-border">
           <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-2">
