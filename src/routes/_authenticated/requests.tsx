@@ -84,13 +84,27 @@ function RequestsPage() {
                 key={r.id}
                 className="rounded-3xl border border-border bg-paper p-4 flex items-center gap-3"
               >
-                <Link
-                  to="/user/$userId"
-                  params={{ userId: r.from.id }}
-                  className="h-11 w-11 rounded-full bg-secondary flex items-center justify-center font-semibold text-sm shrink-0"
-                >
-                  {initials(r.from.display_name)}
-                </Link>
+                {r.from.avatar_url ? (
+                  <Link
+                    to="/user/$userId"
+                    params={{ userId: r.from.id }}
+                    className="shrink-0"
+                  >
+                    <img
+                      src={r.from.avatar_url}
+                      alt={r.from.display_name}
+                      className="h-11 w-11 rounded-full object-cover border border-border"
+                    />
+                  </Link>
+                ) : (
+                  <Link
+                    to="/user/$userId"
+                    params={{ userId: r.from.id }}
+                    className="h-11 w-11 rounded-full bg-secondary flex items-center justify-center font-semibold text-sm shrink-0"
+                  >
+                    {initials(r.from.display_name)}
+                  </Link>
+                )}
                 <div className="flex-1 min-w-0">
                   <Link
                     to="/user/$userId"
@@ -145,9 +159,17 @@ function RequestsPage() {
                   params={{ userId: c.other.id }}
                   className="flex items-center gap-3 py-3"
                 >
-                  <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center font-semibold text-xs">
-                    {initials(c.other.display_name)}
-                  </div>
+                  {c.other.avatar_url ? (
+                    <img
+                      src={c.other.avatar_url}
+                      alt={c.other.display_name}
+                      className="h-10 w-10 rounded-full object-cover shrink-0 border border-border"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center font-semibold text-xs shrink-0">
+                      {initials(c.other.display_name)}
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-ink truncate">
                       {c.other.display_name || "Someone"}

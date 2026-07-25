@@ -539,14 +539,22 @@ function ChatPage() {
               params={{ userId: data.other.id }}
               className="flex-1 flex items-center gap-3 min-w-0 hover:opacity-80"
             >
-              <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center font-semibold text-xs shrink-0">
-                {(data.other.display_name || "?")
-                  .split(" ")
-                  .map((s) => s[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </div>
+              {data.other.avatar_url ? (
+                <img
+                  src={data.other.avatar_url}
+                  alt={data.other.display_name}
+                  className="h-10 w-10 rounded-full object-cover shrink-0 border border-border"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center font-semibold text-xs shrink-0">
+                  {(data.other.display_name || "?")
+                    .split(" ")
+                    .map((s) => s[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="font-semibold text-ink truncate leading-tight">
                   {data.other.display_name || "Someone"}

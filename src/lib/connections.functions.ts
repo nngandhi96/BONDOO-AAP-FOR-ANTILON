@@ -207,9 +207,25 @@ export const listIncomingRequests = createServerFn({ method: "GET" })
 
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, display_name, neighbourhood, trust_score")
+      .select("id, display_name, neighbourhood, trust_score, avatar_path")
       .in("id", rows.map((r) => r.requester_id));
-    const map = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+    const profileEntries = await Promise.all(
+      (profiles ?? []).map(async (p) => {
+        let avatar_url: string | null = null;
+        if (p.avatar_path) {
+          const { data: signed } = await supabase.storage
+            .from("avatars")
+            .createSignedUrl(p.avatar_path, 3600);
+          avatar_url =
+            signed?.signedUrl ??
+            supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+        }
+        return [p.id, { ...p, avatar_url }] as const;
+      }),
+    );
+    const map = new Map(profileEntries);
+
     return rows.map((r) => ({
       id: r.id,
       created_at: r.created_at,
@@ -218,6 +234,7 @@ export const listIncomingRequests = createServerFn({ method: "GET" })
         display_name: "",
         neighbourhood: "",
         trust_score: null,
+        avatar_url: null,
       },
     }));
   });
@@ -239,9 +256,25 @@ export const listConnections = createServerFn({ method: "GET" })
     const otherIds = rows.map((r) => (r.requester_id === userId ? r.recipient_id : r.requester_id));
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, display_name, neighbourhood, trust_score")
+      .select("id, display_name, neighbourhood, trust_score, avatar_path")
       .in("id", otherIds);
-    const map = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+    const profileEntries = await Promise.all(
+      (profiles ?? []).map(async (p) => {
+        let avatar_url: string | null = null;
+        if (p.avatar_path) {
+          const { data: signed } = await supabase.storage
+            .from("avatars")
+            .createSignedUrl(p.avatar_path, 3600);
+          avatar_url =
+            signed?.signedUrl ??
+            supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+        }
+        return [p.id, { ...p, avatar_url }] as const;
+      }),
+    );
+    const map = new Map(profileEntries);
+
     return rows.map((r) => {
       const otherId = r.requester_id === userId ? r.recipient_id : r.requester_id;
       return {
@@ -252,6 +285,7 @@ export const listConnections = createServerFn({ method: "GET" })
           display_name: "",
           neighbourhood: "",
           trust_score: null,
+          avatar_url: null,
         },
       };
     });

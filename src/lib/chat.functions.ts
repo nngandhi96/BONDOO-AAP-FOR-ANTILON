@@ -27,13 +27,26 @@ export const listConversations = createServerFn({ method: "GET" })
 
     const { data: profiles, error: pErr } = await supabase
       .from("profiles")
-      .select("id, display_name, neighbourhood, trust_score")
+      .select("id, display_name, neighbourhood, trust_score, avatar_path")
       .in("id", otherIds);
     if (pErr) throw new Error(pErr.message);
 
-    const profileMap = new Map(
-      (profiles ?? []).map((p) => [p.id, p]),
+    const profileEntries = await Promise.all(
+      (profiles ?? []).map(async (p) => {
+        let avatar_url: string | null = null;
+        if (p.avatar_path) {
+          const { data: signed } = await supabase.storage
+            .from("avatars")
+            .createSignedUrl(p.avatar_path, 3600);
+          avatar_url =
+            signed?.signedUrl ??
+            supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+        }
+        return [p.id, { ...p, avatar_url }] as const;
+      }),
     );
+
+    const profileMap = new Map(profileEntries);
 
     // Last message per conversation
     const convoIds = convos.map((c) => c.id);
@@ -75,6 +88,7 @@ export const listConversations = createServerFn({ method: "GET" })
           display_name: other?.display_name ?? "",
           neighbourhood: other?.neighbourhood ?? "",
           trust_score: other?.trust_score ?? null,
+          avatar_url: other?.avatar_url ?? null,
         },
         last_message: lastByConv.get(c.id) ?? null,
       };
@@ -159,9 +173,19 @@ export const getConversation = createServerFn({ method: "GET" })
     const otherId = convo.user_a === userId ? convo.user_b : convo.user_a;
     const { data: other } = await supabase
       .from("profiles")
-      .select("id, display_name, neighbourhood, trust_score")
+      .select("id, display_name, neighbourhood, trust_score, avatar_path")
       .eq("id", otherId)
       .maybeSingle();
+
+    let avatar_url: string | null = null;
+    if (other?.avatar_path) {
+      const { data: signed } = await supabase.storage
+        .from("avatars")
+        .createSignedUrl(other.avatar_path, 3600);
+      avatar_url =
+        signed?.signedUrl ??
+        supabase.storage.from("avatars").getPublicUrl(other.avatar_path).data.publicUrl;
+    }
 
     const { data: messages, error: mErr } = await supabase
       .from("messages")
@@ -178,6 +202,7 @@ export const getConversation = createServerFn({ method: "GET" })
         display_name: other?.display_name ?? "",
         neighbourhood: other?.neighbourhood ?? "",
         trust_score: other?.trust_score ?? null,
+        avatar_url,
       },
       messages: messages ?? [],
     };
@@ -262,12 +287,27 @@ export const searchUsers = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const { data: rows, error } = await supabase
       .from("profiles")
-      .select("id, display_name, neighbourhood, trust_score")
+      .select("id, display_name, neighbourhood, trust_score, avatar_path")
       .ilike("display_name", `%${data.q}%`)
       .neq("id", userId)
       .limit(20);
     if (error) throw new Error(error.message);
-    return rows ?? [];
+
+    const withAvatars = await Promise.all(
+      (rows ?? []).map(async (u) => {
+        let avatar_url: string | null = null;
+        if (u.avatar_path) {
+          const { data: signed } = await supabase.storage
+            .from("avatars")
+            .createSignedUrl(u.avatar_path, 3600);
+          avatar_url =
+            signed?.signedUrl ??
+            supabase.storage.from("avatars").getPublicUrl(u.avatar_path).data.publicUrl;
+        }
+        return { ...u, avatar_url };
+      }),
+    );
+    return withAvatars;
   });
 
 /**
