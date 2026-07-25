@@ -214,12 +214,16 @@ export const listIncomingRequests = createServerFn({ method: "GET" })
       (profiles ?? []).map(async (p) => {
         let avatar_url: string | null = null;
         if (p.avatar_path) {
-          const { data: signed } = await supabase.storage
-            .from("avatars")
-            .createSignedUrl(p.avatar_path, 3600);
-          avatar_url =
-            signed?.signedUrl ??
-            supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            const { data: signed } = await supabaseAdmin.storage
+              .from("avatars")
+              .createSignedUrl(p.avatar_path, 3600);
+            avatar_url = signed?.signedUrl ?? null;
+          } catch {}
+          if (!avatar_url) {
+            avatar_url = supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+          }
         }
         return [p.id, { ...p, avatar_url }] as const;
       }),
@@ -263,12 +267,16 @@ export const listConnections = createServerFn({ method: "GET" })
       (profiles ?? []).map(async (p) => {
         let avatar_url: string | null = null;
         if (p.avatar_path) {
-          const { data: signed } = await supabase.storage
-            .from("avatars")
-            .createSignedUrl(p.avatar_path, 3600);
-          avatar_url =
-            signed?.signedUrl ??
-            supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            const { data: signed } = await supabaseAdmin.storage
+              .from("avatars")
+              .createSignedUrl(p.avatar_path, 3600);
+            avatar_url = signed?.signedUrl ?? null;
+          } catch {}
+          if (!avatar_url) {
+            avatar_url = supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+          }
         }
         return [p.id, { ...p, avatar_url }] as const;
       }),

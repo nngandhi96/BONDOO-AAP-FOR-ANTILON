@@ -14,12 +14,16 @@ export const getMyProfile = createServerFn({ method: "GET" })
     if (!data) return null;
     let avatar_url: string | null = null;
     if (data.avatar_path) {
-      const { data: signed } = await context.supabase.storage
-        .from("avatars")
-        .createSignedUrl(data.avatar_path, 3600);
-      avatar_url =
-        signed?.signedUrl ??
-        context.supabase.storage.from("avatars").getPublicUrl(data.avatar_path).data.publicUrl;
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: signed } = await supabaseAdmin.storage
+          .from("avatars")
+          .createSignedUrl(data.avatar_path, 3600);
+        avatar_url = signed?.signedUrl ?? null;
+      } catch {}
+      if (!avatar_url) {
+        avatar_url = context.supabase.storage.from("avatars").getPublicUrl(data.avatar_path).data.publicUrl;
+      }
     }
     return { ...data, avatar_url };
   });
@@ -41,12 +45,16 @@ export const getUserProfile = createServerFn({ method: "GET" })
     if (!row) throw new Error("Profile not found");
     let avatar_url: string | null = null;
     if (row.avatar_path) {
-      const { data: signed } = await context.supabase.storage
-        .from("avatars")
-        .createSignedUrl(row.avatar_path, 3600);
-      avatar_url =
-        signed?.signedUrl ??
-        context.supabase.storage.from("avatars").getPublicUrl(row.avatar_path).data.publicUrl;
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: signed } = await supabaseAdmin.storage
+          .from("avatars")
+          .createSignedUrl(row.avatar_path, 3600);
+        avatar_url = signed?.signedUrl ?? null;
+      } catch {}
+      if (!avatar_url) {
+        avatar_url = context.supabase.storage.from("avatars").getPublicUrl(row.avatar_path).data.publicUrl;
+      }
     }
     return { ...row, avatar_url };
   });

@@ -22,6 +22,7 @@ export type ActivityRow = {
   id: string;
   host_id: string;
   host_name: string;
+  host_avatar_url: string | null;
   host_trust: number | null;
   title: string;
   category: (typeof CATEGORIES)[number];
@@ -53,9 +54,28 @@ export const listActivities = createServerFn({ method: "GET" })
     const hostIds = Array.from(new Set(rows.map((r) => r.host_id)));
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, display_name, trust_score")
+      .select("id, display_name, trust_score, avatar_path")
       .in("id", hostIds);
-    const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+    const profileEntries = await Promise.all(
+      (profiles ?? []).map(async (p) => {
+        let avatar_url: string | null = null;
+        if (p.avatar_path) {
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            const { data: signed } = await supabaseAdmin.storage
+              .from("avatars")
+              .createSignedUrl(p.avatar_path, 3600);
+            avatar_url = signed?.signedUrl ?? null;
+          } catch {}
+          if (!avatar_url) {
+            avatar_url = supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+          }
+        }
+        return [p.id, { ...p, avatar_url }] as const;
+      }),
+    );
+    const pmap = new Map(profileEntries);
 
     return rows.map((r) => {
       const cat = r.category as (typeof CATEGORIES)[number];
@@ -64,6 +84,7 @@ export const listActivities = createServerFn({ method: "GET" })
         id: r.id,
         host_id: r.host_id,
         host_name: p?.display_name || "Someone",
+        host_avatar_url: p?.avatar_url ?? null,
         host_trust: p?.trust_score ?? null,
         title: r.title,
         category: cat,

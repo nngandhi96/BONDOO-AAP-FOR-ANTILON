@@ -353,9 +353,17 @@ function Dashboard() {
                       </h3>
                       <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
                         <span className="flex items-center gap-1.5 text-ink/80">
-                          <span className="h-5 w-5 rounded-full bg-secondary flex items-center justify-center font-semibold text-[9px]">
-                            {a.host_name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
-                          </span>
+                          {a.host_avatar_url ? (
+                            <img
+                              src={a.host_avatar_url}
+                              alt={a.host_name}
+                              className="h-5 w-5 rounded-full object-cover shrink-0 border border-border"
+                            />
+                          ) : (
+                            <span className="h-5 w-5 rounded-full bg-secondary flex items-center justify-center font-semibold text-[9px] shrink-0">
+                              {a.host_name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
+                            </span>
+                          )}
                           {a.is_mine ? "You" : a.host_name}
                         </span>
                         {a.host_trust !== null && (

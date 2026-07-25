@@ -35,12 +35,16 @@ export const listConversations = createServerFn({ method: "GET" })
       (profiles ?? []).map(async (p) => {
         let avatar_url: string | null = null;
         if (p.avatar_path) {
-          const { data: signed } = await supabase.storage
-            .from("avatars")
-            .createSignedUrl(p.avatar_path, 3600);
-          avatar_url =
-            signed?.signedUrl ??
-            supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            const { data: signed } = await supabaseAdmin.storage
+              .from("avatars")
+              .createSignedUrl(p.avatar_path, 3600);
+            avatar_url = signed?.signedUrl ?? null;
+          } catch {}
+          if (!avatar_url) {
+            avatar_url = supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
+          }
         }
         return [p.id, { ...p, avatar_url }] as const;
       }),
@@ -179,12 +183,16 @@ export const getConversation = createServerFn({ method: "GET" })
 
     let avatar_url: string | null = null;
     if (other?.avatar_path) {
-      const { data: signed } = await supabase.storage
-        .from("avatars")
-        .createSignedUrl(other.avatar_path, 3600);
-      avatar_url =
-        signed?.signedUrl ??
-        supabase.storage.from("avatars").getPublicUrl(other.avatar_path).data.publicUrl;
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: signed } = await supabaseAdmin.storage
+          .from("avatars")
+          .createSignedUrl(other.avatar_path, 3600);
+        avatar_url = signed?.signedUrl ?? null;
+      } catch {}
+      if (!avatar_url) {
+        avatar_url = supabase.storage.from("avatars").getPublicUrl(other.avatar_path).data.publicUrl;
+      }
     }
 
     const { data: messages, error: mErr } = await supabase
@@ -297,12 +305,16 @@ export const searchUsers = createServerFn({ method: "GET" })
       (rows ?? []).map(async (u) => {
         let avatar_url: string | null = null;
         if (u.avatar_path) {
-          const { data: signed } = await supabase.storage
-            .from("avatars")
-            .createSignedUrl(u.avatar_path, 3600);
-          avatar_url =
-            signed?.signedUrl ??
-            supabase.storage.from("avatars").getPublicUrl(u.avatar_path).data.publicUrl;
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            const { data: signed } = await supabaseAdmin.storage
+              .from("avatars")
+              .createSignedUrl(u.avatar_path, 3600);
+            avatar_url = signed?.signedUrl ?? null;
+          } catch {}
+          if (!avatar_url) {
+            avatar_url = supabase.storage.from("avatars").getPublicUrl(u.avatar_path).data.publicUrl;
+          }
         }
         return { ...u, avatar_url };
       }),
