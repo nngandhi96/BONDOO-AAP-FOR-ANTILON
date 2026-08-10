@@ -41,6 +41,13 @@ export function SelfieCameraModal({ open, onClose }: Props) {
     },
   });
 
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+  };
+
   const startCamera = async () => {
     setCameraError(null);
     setCapturedImage(null);
@@ -48,26 +55,37 @@ export function SelfieCameraModal({ open, onClose }: Props) {
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("Direct camera stream not supported on this browser.");
       }
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } },
-        audio: false,
-      });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+      let mediaStream: MediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        });
+      } catch {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
       }
+      setStream(mediaStream);
     } catch (err) {
       console.warn("Camera stream error:", err);
-      setCameraError("Camera permission blocked or unavailable. You can upload a selfie below.");
+      setCameraError(
+        "Camera permission blocked or unavailable. You can upload a selfie below.",
+      );
     }
   };
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
+  // Sync mediaStream with video element srcObject when stream or ref updates
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      const video = videoRef.current;
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+        video.play().catch((e) => console.warn("Video play warning:", e));
+      }
     }
-  };
+  }, [stream]);
 
   useEffect(() => {
     if (open) {
@@ -151,7 +169,13 @@ export function SelfieCameraModal({ open, onClose }: Props) {
           ) : stream ? (
             <>
               <video
-                ref={videoRef}
+                ref={(node) => {
+                  videoRef.current = node;
+                  if (node && stream && node.srcObject !== stream) {
+                    node.srcObject = stream;
+                    node.play().catch(() => {});
+                  }
+                }}
                 autoPlay
                 playsInline
                 muted
