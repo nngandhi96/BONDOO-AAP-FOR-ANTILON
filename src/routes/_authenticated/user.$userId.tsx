@@ -43,6 +43,47 @@ function Row({ label, ok, note }: { label: string; ok: boolean; note?: string })
   );
 }
 
+function MobileRow({ ok }: { ok: boolean }) {
+  return (
+    <li className="py-3.5 border-b border-border last:border-0">
+      <div className="flex items-center justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-ink text-sm font-medium">Mobile Number</p>
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              🔒 Blurred for security
+            </span>
+          </div>
+          {ok ? (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="select-none blur-[5px] pointer-events-none font-mono text-xs text-muted-foreground/80 bg-surface px-2 py-0.5 rounded border border-border/60"
+              >
+                +91 ••••• •••89
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                (Hidden for privacy)
+              </span>
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Not verified yet
+            </p>
+          )}
+        </div>
+        <span
+          className={`text-[10px] uppercase tracking-[0.22em] font-semibold shrink-0 ml-3 ${
+            ok ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          {ok ? "Verified" : "Pending"}
+        </span>
+      </div>
+    </li>
+  );
+}
+
 function UserProfilePage() {
   const { userId } = useParams({ from: "/_authenticated/user/$userId" });
   const fetchUser = useServerFn(getUserProfile);
@@ -239,7 +280,7 @@ function UserProfilePage() {
           Verifications
         </p>
         <ul className="rounded-3xl border border-border bg-paper px-5">
-          <Row label="Mobile" ok={data.phone_verified} />
+          <MobileRow ok={data.phone_verified} />
           <Row label="Government ID" ok={data.gov_id_verified} />
           {conn?.status === "connected" && data.gov_id_verified && (
             <li className="py-3 border-b border-border last:border-0">

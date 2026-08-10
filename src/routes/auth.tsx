@@ -12,7 +12,12 @@ function safeNext(input: unknown): string {
 }
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (s: Record<string, unknown>) => ({ next: safeNext(s.next) }),
+  validateSearch: (s: Record<string, unknown>): { next?: string } => {
+    if (typeof s.next === "string" && s.next) {
+      return { next: safeNext(s.next) };
+    }
+    return {};
+  },
   head: () => ({
     meta: [
       { title: "Sign in · Bondoo" },
@@ -24,7 +29,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthScreen() {
   const navigate = useNavigate();
-  const { next } = Route.useSearch();
+  const { next = "/dashboard" } = Route.useSearch();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
