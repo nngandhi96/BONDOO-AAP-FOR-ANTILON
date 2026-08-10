@@ -12,6 +12,7 @@ import { GovIdUpload } from "@/components/gov-id-upload";
 import { AvatarUpload } from "@/components/avatar-upload";
 import { NotificationsToggle } from "@/components/notifications-toggle";
 import { SelfieCameraModal } from "@/components/selfie-camera-modal";
+import { PhoneOtpModal } from "@/components/phone-otp-modal";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -128,6 +129,7 @@ function Profile() {
 
   const [editing, setEditing] = useState(false);
   const [showSelfieModal, setShowSelfieModal] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [neighbourhood, setNeighbourhood] = useState("");
@@ -294,7 +296,7 @@ function Profile() {
                   ok: profile.phone_verified,
                   action: profile.phone_verified
                     ? null
-                    : { kind: "verify" as const, step: "phone" as const, cta: "Verify" },
+                    : { kind: "phone" as const, cta: "Verify" },
                 },
                 {
                   label: "Government ID",
@@ -344,7 +346,9 @@ function Profile() {
                   {row.action && (
                     <button
                       onClick={() => {
-                        if (row.action!.kind === "selfie") {
+                        if (row.action!.kind === "phone") {
+                          setShowPhoneModal(true);
+                        } else if (row.action!.kind === "selfie") {
                           setShowSelfieModal(true);
                         } else if (row.action!.kind === "verify") {
                           verifyMutation.mutate(row.action!.step);
@@ -545,6 +549,10 @@ function Profile() {
       <SelfieCameraModal
         open={showSelfieModal}
         onClose={() => setShowSelfieModal(false)}
+      />
+      <PhoneOtpModal
+        open={showPhoneModal}
+        onClose={() => setShowPhoneModal(false)}
       />
     </main>
   );
