@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { GovIdUpload } from "@/components/gov-id-upload";
 import { AvatarUpload } from "@/components/avatar-upload";
 import { NotificationsToggle } from "@/components/notifications-toggle";
+import { SelfieCameraModal } from "@/components/selfie-camera-modal";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -126,6 +127,7 @@ function Profile() {
   });
 
   const [editing, setEditing] = useState(false);
+  const [showSelfieModal, setShowSelfieModal] = useState(false);
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [neighbourhood, setNeighbourhood] = useState("");
@@ -308,7 +310,7 @@ function Profile() {
                   ok: profile.selfie_verified,
                   action: profile.selfie_verified
                     ? null
-                    : { kind: "verify" as const, step: "selfie" as const, cta: "Start" },
+                    : { kind: "selfie" as const, cta: "Start" },
                 },
                 {
                   label: "Background check",
@@ -342,11 +344,13 @@ function Profile() {
                   {row.action && (
                     <button
                       onClick={() => {
-                        if (row.action!.kind === "verify") {
+                        if (row.action!.kind === "selfie") {
+                          setShowSelfieModal(true);
+                        } else if (row.action!.kind === "verify") {
                           verifyMutation.mutate(row.action!.step);
                         } else {
                           document
-                            .getElementById(row.action!.target)
+                            .getElementById((row.action as { kind: "scroll"; target: string }).target)
                             ?.scrollIntoView({ behavior: "smooth", block: "start" });
                         }
                       }}
@@ -538,6 +542,10 @@ function Profile() {
           </div>
         </div>
       )}
+      <SelfieCameraModal
+        open={showSelfieModal}
+        onClose={() => setShowSelfieModal(false)}
+      />
     </main>
   );
 }
