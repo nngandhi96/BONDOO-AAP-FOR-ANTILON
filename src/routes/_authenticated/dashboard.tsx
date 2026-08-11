@@ -7,6 +7,8 @@ import { getMyProfile } from "@/lib/profile.functions";
 import {
   listActivities,
   createActivity,
+  updateActivity,
+  deleteActivity,
   type ActivityRow,
 } from "@/lib/activities.functions";
 import { getOrCreateConversation } from "@/lib/chat.functions";
@@ -59,6 +61,17 @@ function formatWhen(iso: string) {
   return `${d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} · ${time}`;
 }
 
+function toLocalDatetimeString(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371;
   const toRad = (v: number) => (v * Math.PI) / 180;
@@ -81,6 +94,15 @@ function Dashboard() {
   const [draftWhen, setDraftWhen] = useState("");
   const [draftLocation, setDraftLocation] = useState("");
   const [draftCat, setDraftCat] = useState<Category>("Coffee & Chat");
+
+  const [showEdit, setShowEdit] = useState(false);
+  const [editActivityId, setEditActivityId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editWhen, setEditWhen] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editCat, setEditCat] = useState<Category>("Coffee & Chat");
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [opening, setOpening] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
@@ -90,6 +112,8 @@ function Dashboard() {
   const fetchProfile = useServerFn(getMyProfile);
   const fetchActivities = useServerFn(listActivities);
   const postActivity = useServerFn(createActivity);
+  const editActivity = useServerFn(updateActivity);
+  const removeActivity = useServerFn(deleteActivity);
   const openConvo = useServerFn(getOrCreateConversation);
   const fetchPending = useServerFn(listMeetupsAwaitingMyReview);
 
@@ -189,6 +213,56 @@ function Dashboard() {
       starts_at: new Date(draftWhen).toISOString(),
       location_name: draftLocation.trim() || undefined,
     });
+  }
+
+  const updateMut = useMutation({
+    mutationFn: (input: {
+      activityId: string;
+      title: string;
+      category: Category;
+      starts_at: string;
+      location_name?: string;
+    }) => editActivity({ data: input }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["activities"] });
+      setShowEdit(false);
+      setEditActivityId(null);
+      setSelected(null);
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (activityId: string) => removeActivity({ data: { activityId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["activities"] });
+      setConfirmingDelete(false);
+      setSelected(null);
+    },
+  });
+
+  function handleStartEdit(act: ActivityRow) {
+    setEditActivityId(act.id);
+    setEditTitle(act.title);
+    setEditCat(act.category);
+    setEditWhen(toLocalDatetimeString(act.starts_at));
+    setEditLocation(act.location_name || "");
+    setShowEdit(true);
+  }
+
+  function handleSaveEdit() {
+    if (!editActivityId || !editTitle.trim() || !editWhen) return;
+    updateMut.mutate({
+      activityId: editActivityId,
+      title: editTitle.trim(),
+      category: editCat,
+      starts_at: new Date(editWhen).toISOString(),
+      location_name: editLocation.trim() || undefined,
+    });
+  }
+
+  function handleDelete() {
+    if (!selected) return;
+    deleteMut.mutate(selected.id);
   }
 
   async function messageHost(hostId: string) {
@@ -551,10 +625,125 @@ function Dashboard() {
         </div>
       )}
 
+      {showEdit && (
+        <div
+          className="fixed inset-0 z-30 bg-ink/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+          onClick={() => {
+            setShowEdit(false);
+            setEditActivityId(null);
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-background rounded-3xl p-7 shadow-2xl border border-border animate-in slide-in-from-bottom duration-200"
+          >
+            <p className="text-center text-[11px] uppercase tracking-[0.22em] text-brand-orange font-semibold">
+              Edit activity
+            </p>
+            <h2 className="display text-3xl text-ink text-center mt-2 leading-tight">
+              Update <em className="text-primary not-italic">activity</em>
+            </h2>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+                  Category
+                </label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {(Object.keys(CATEGORY_META) as Category[]).map((c) => {
+                    const meta = CATEGORY_META[c];
+                    const active = editCat === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setEditCat(c)}
+                        className={`flex items-center gap-2 rounded-2xl border px-3 py-3 text-left text-sm transition ${
+                          active
+                            ? "bg-brand-orange border-brand-orange text-ink font-semibold"
+                            : "bg-paper border-border text-ink hover:bg-surface"
+                        }`}
+                      >
+                        <span className="text-lg">{meta.emoji}</span>
+                        <span className="leading-tight">{meta.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+                  Title
+                </label>
+                <input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="e.g. Evening walk at Cubbon Park"
+                  className="mt-2 w-full rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+                  When
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editWhen}
+                  onChange={(e) => setEditWhen(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+                  Where <span className="normal-case tracking-normal text-muted-foreground/70">(optional, public place)</span>
+                </label>
+                <input
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  placeholder="e.g. Cubbon Park, Gate 4"
+                  className="mt-2 w-full rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+
+            {updateMut.isError && (
+              <p className="mt-3 text-xs text-destructive">
+                {(updateMut.error as Error).message}
+              </p>
+            )}
+
+            <div className="mt-6 flex gap-2">
+              <button
+                onClick={() => {
+                  setShowEdit(false);
+                  setEditActivityId(null);
+                }}
+                className="flex-1 rounded-2xl border border-border bg-paper py-3.5 font-semibold text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={!editTitle.trim() || !editWhen || updateMut.isPending}
+                className="flex-1 rounded-2xl bg-ink py-3.5 font-semibold text-background disabled:opacity-50"
+              >
+                {updateMut.isPending ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selected && (
         <div
           className="fixed inset-0 z-30 bg-ink/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
-          onClick={() => setSelected(null)}
+          onClick={() => {
+            setSelected(null);
+            setConfirmingDelete(false);
+          }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -605,39 +794,84 @@ function Dashboard() {
               </p>
             )}
 
-            <div className="mt-6 flex gap-2">
-              <button
-                onClick={() => setSelected(null)}
-                className="flex-1 rounded-2xl border border-border bg-paper py-3.5 font-semibold text-ink"
-              >
-                Close
-              </button>
-              {selected.is_mine ? (
-                <Link
-                  to="/profile"
-                  className="flex-1 rounded-2xl bg-ink py-3.5 font-semibold text-background text-center"
-                >
-                  Manage
-                </Link>
+            {selected.is_mine ? (
+              confirmingDelete ? (
+                <div className="mt-6 rounded-2xl bg-destructive/10 border border-destructive/20 p-4 text-center">
+                  <p className="text-sm font-semibold text-destructive">
+                    Delete this activity?
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    It will be removed from nearby activity feeds.
+                  </p>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => setConfirmingDelete(false)}
+                      className="flex-1 rounded-2xl border border-border bg-paper py-2.5 text-xs font-semibold text-ink"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleteMut.isPending}
+                      className="flex-1 rounded-2xl bg-destructive py-2.5 text-xs font-semibold text-destructive-foreground disabled:opacity-50"
+                    >
+                      {deleteMut.isPending ? "Deleting…" : "Confirm Delete"}
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <>
-                  <Link
-                    to="/user/$userId"
-                    params={{ userId: selected.host_id }}
-                    className="flex-1 rounded-2xl border border-ink bg-background py-3.5 font-semibold text-ink text-center"
-                  >
-                    View host
-                  </Link>
+                <div className="mt-6 flex gap-2">
                   <button
-                    onClick={() => messageHost(selected.host_id)}
-                    disabled={opening}
-                    className="flex-1 rounded-2xl bg-ink py-3.5 font-semibold text-background disabled:opacity-60"
+                    onClick={() => {
+                      setSelected(null);
+                      setConfirmingDelete(false);
+                    }}
+                    className="flex-1 rounded-2xl border border-border bg-paper py-3.5 font-semibold text-ink"
                   >
-                    {opening ? "Opening…" : "Message host"}
+                    Close
                   </button>
-                </>
-              )}
-            </div>
+                  <button
+                    onClick={() => {
+                      const current = selected;
+                      setSelected(null);
+                      handleStartEdit(current);
+                    }}
+                    className="flex-1 rounded-2xl border border-primary text-primary bg-background py-3.5 font-semibold text-center hover:bg-primary/10 transition"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setConfirmingDelete(true)}
+                    className="flex-1 rounded-2xl bg-destructive/10 text-destructive border border-destructive/20 py-3.5 font-semibold text-center hover:bg-destructive/20 transition"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )
+            ) : (
+              <div className="mt-6 flex gap-2">
+                <button
+                  onClick={() => setSelected(null)}
+                  className="flex-1 rounded-2xl border border-border bg-paper py-3.5 font-semibold text-ink"
+                >
+                  Close
+                </button>
+                <Link
+                  to="/user/$userId"
+                  params={{ userId: selected.host_id }}
+                  className="flex-1 rounded-2xl border border-ink bg-background py-3.5 font-semibold text-ink text-center"
+                >
+                  View host
+                </Link>
+                <button
+                  onClick={() => messageHost(selected.host_id)}
+                  disabled={opening}
+                  className="flex-1 rounded-2xl bg-ink py-3.5 font-semibold text-background disabled:opacity-60"
+                >
+                  {opening ? "Opening…" : "Message host"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

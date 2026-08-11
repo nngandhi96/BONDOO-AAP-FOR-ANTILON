@@ -154,3 +154,58 @@ export const cancelActivity = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const updateActivity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        activityId: z.string().uuid(),
+        title: z.string().trim().min(3).max(120),
+        category: z.enum(CATEGORIES),
+        starts_at: z.string().min(1),
+        location_name: z.string().trim().max(120).optional().nullable(),
+        location_lat: z.number().min(-90).max(90).optional().nullable(),
+        location_lng: z.number().min(-180).max(180).optional().nullable(),
+        spots_total: z.number().int().min(2).max(20).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const starts = new Date(data.starts_at);
+    if (Number.isNaN(starts.getTime())) throw new Error("Invalid start time.");
+    const { error } = await supabase
+      .from("activities")
+      .update({
+        title: data.title,
+        category: data.category,
+        emoji: CATEGORY_EMOJI[data.category],
+        starts_at: starts.toISOString(),
+        location_name: data.location_name || null,
+        ...(data.location_lat !== undefined ? { location_lat: data.location_lat } : {}),
+        ...(data.location_lng !== undefined ? { location_lng: data.location_lng } : {}),
+        ...(data.spots_total !== undefined ? { spots_total: data.spots_total } : {}),
+      })
+      .eq("id", data.activityId)
+      .eq("host_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteActivity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ activityId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("activities")
+      .delete()
+      .eq("id", data.activityId)
+      .eq("host_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
