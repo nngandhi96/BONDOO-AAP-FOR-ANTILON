@@ -592,7 +592,17 @@ export type Database = {
       }
     }
     Enums: {
-      activity_category: "Coffee & Chat" | "Walk" | "Study" | "Sports" | "Food"
+      activity_category:
+        | "Coffee & Chat"
+        | "Walk"
+        | "Study"
+        | "Sports"
+        | "Food"
+        | "Music Jam"
+        | "House Party"
+        | "Youth Meetup"
+        | "Birthday Party"
+        | "Fun Hangout"
       activity_status: "active" | "cancelled" | "completed"
       app_role: "admin" | "moderator" | "user"
     }
@@ -722,7 +732,18 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      activity_category: ["Coffee & Chat", "Walk", "Study", "Sports", "Food"],
+      activity_category: [
+        "Coffee & Chat",
+        "Walk",
+        "Study",
+        "Sports",
+        "Food",
+        "Music Jam",
+        "House Party",
+        "Youth Meetup",
+        "Birthday Party",
+        "Fun Hangout",
+      ],
       activity_status: ["active", "cancelled", "completed"],
       app_role: ["admin", "moderator", "user"],
     },

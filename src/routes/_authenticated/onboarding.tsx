@@ -186,7 +186,7 @@ function Onboarding() {
                 Interests <span className="normal-case tracking-normal text-muted-foreground/70">(pick a few)</span>
               </span>
               <div className="mt-2 flex flex-wrap gap-2">
-                {["Coffee & Chat", "Walk", "Study", "Sports", "Food", "Music", "Books", "Movies", "Art", "Nature"].map((tag) => {
+                {["Coffee & Chat", "Walk", "Study", "Sports", "Food", "Music Jam", "House Party", "Youth Meetup", "Birthday Party", "Fun Hangout", "Books", "Movies", "Art", "Nature"].map((tag) => {
                   const on = interests.includes(tag);
                   return (
                     <button

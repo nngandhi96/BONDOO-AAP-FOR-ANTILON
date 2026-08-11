@@ -8,6 +8,11 @@ const CATEGORIES = [
   "Study",
   "Sports",
   "Food",
+  "Music Jam",
+  "House Party",
+  "Youth Meetup",
+  "Birthday Party",
+  "Fun Hangout",
 ] as const;
 
 const CATEGORY_EMOJI: Record<(typeof CATEGORIES)[number], string> = {
@@ -16,6 +21,11 @@ const CATEGORY_EMOJI: Record<(typeof CATEGORIES)[number], string> = {
   Study: "📖",
   Sports: "🏸",
   Food: "🍜",
+  "Music Jam": "🎸",
+  "House Party": "🏠",
+  "Youth Meetup": "👥",
+  "Birthday Party": "🎂",
+  "Fun Hangout": "🍿",
 };
 
 export type ActivityRow = {

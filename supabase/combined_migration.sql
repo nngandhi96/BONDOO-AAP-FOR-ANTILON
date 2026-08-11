@@ -1,4 +1,4 @@
-﻿-- Profiles table
+-- Profiles table
 CREATE TABLE public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   display_name TEXT NOT NULL DEFAULT '',
@@ -604,7 +604,7 @@ CREATE TRIGGER push_subscriptions_set_updated_at
   BEFORE UPDATE ON public.push_subscriptions
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-CREATE TYPE public.activity_category AS ENUM ('Coffee & Chat', 'Walk', 'Study', 'Sports', 'Food');
+CREATE TYPE public.activity_category AS ENUM ('Coffee & Chat', 'Walk', 'Study', 'Sports', 'Food', 'Music Jam', 'House Party', 'Youth Meetup', 'Birthday Party', 'Fun Hangout');
 CREATE TYPE public.activity_status AS ENUM ('active', 'cancelled', 'completed');
 
 CREATE TABLE public.activities (

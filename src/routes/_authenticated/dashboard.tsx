@@ -36,6 +36,11 @@ const CATEGORIES = [
   "Study",
   "Sports",
   "Food",
+  "Music Jam",
+  "House Party",
+  "Youth Meetup",
+  "Birthday Party",
+  "Fun Hangout",
 ] as const;
 
 type Category = Exclude<(typeof CATEGORIES)[number], "All">;
@@ -46,6 +51,11 @@ const CATEGORY_META: Record<Category, { emoji: string; label: string }> = {
   Study: { emoji: "📖", label: "Study / Library Session" },
   Sports: { emoji: "🏸", label: "Sports" },
   Food: { emoji: "🍜", label: "Food" },
+  "Music Jam": { emoji: "🎸", label: "Music Jam" },
+  "House Party": { emoji: "🏠", label: "House Party" },
+  "Youth Meetup": { emoji: "👥", label: "Youth Meetup" },
+  "Birthday Party": { emoji: "🎂", label: "Birthday Party" },
+  "Fun Hangout": { emoji: "🍿", label: "Fun Hangout" },
 };
 
 function formatWhen(iso: string) {
