@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { BondooEyes } from "@/components/bondoo-logo";
 import { getMyProfile, updateMyProfile } from "@/lib/profile.functions";
-import { getMyAdminRole } from "@/lib/admin.functions";
 import { deleteMyAccount } from "@/lib/account.functions";
 import { markVerificationStep } from "@/lib/verification.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,7 +97,6 @@ function Profile() {
   const queryClient = useQueryClient();
   const fetchProfile = useServerFn(getMyProfile);
   const saveProfile = useServerFn(updateMyProfile);
-  const fetchAdminRole = useServerFn(getMyAdminRole);
   const runDeleteAccount = useServerFn(deleteMyAccount);
   const runVerify = useServerFn(markVerificationStep);
   const verifyMutation = useMutation({
@@ -116,10 +114,6 @@ function Profile() {
       queryClient.clear();
       navigate({ to: "/auth", replace: true });
     },
-  });
-  const { data: adminRole } = useQuery({
-    queryKey: ["admin-role"],
-    queryFn: () => fetchAdminRole(),
   });
 
   const { data: profile, isLoading } = useQuery({
@@ -459,15 +453,6 @@ function Profile() {
             )}
           </div>
         </article>
-
-        {adminRole?.canReview && (
-          <Link
-            to="/admin"
-            className="block w-full text-center rounded-2xl bg-brand-orange/10 border border-brand-orange/30 py-3 text-sm font-semibold text-brand-orange hover:bg-brand-orange/15 transition shadow-sm"
-          >
-            🛡️ Admin Control Center
-          </Link>
-        )}
 
         <button
           onClick={handleSignOut}
