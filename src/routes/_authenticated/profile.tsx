@@ -462,10 +462,10 @@ function Profile() {
 
         {adminRole?.canReview && (
           <Link
-            to="/admin/reports"
-            className="block w-full text-center rounded-2xl bg-paper border border-border py-3 text-sm font-medium text-brand-orange"
+            to="/admin"
+            className="block w-full text-center rounded-2xl bg-brand-orange/10 border border-brand-orange/30 py-3 text-sm font-semibold text-brand-orange hover:bg-brand-orange/15 transition shadow-sm"
           >
-            Admin · Report review
+            🛡️ Admin Control Center
           </Link>
         )}
 
