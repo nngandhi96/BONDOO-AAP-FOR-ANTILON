@@ -12,6 +12,9 @@ import { AvatarUpload } from "@/components/avatar-upload";
 import { NotificationsToggle } from "@/components/notifications-toggle";
 import { SelfieCameraModal } from "@/components/selfie-camera-modal";
 import { PhoneOtpModal } from "@/components/phone-otp-modal";
+import { getMyAdminRole } from "@/lib/admin.functions";
+import { usePlatform } from "@/lib/platform";
+import { ShieldCheck, Monitor, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -116,9 +119,17 @@ function Profile() {
     },
   });
 
+  const fetchAdminRole = useServerFn(getMyAdminRole);
+  const { isWeb } = usePlatform();
+
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", "me"],
     queryFn: () => fetchProfile(),
+  });
+
+  const { data: adminRole } = useQuery({
+    queryKey: ["admin-role"],
+    queryFn: () => fetchAdminRole(),
   });
 
   const [editing, setEditing] = useState(false);
@@ -453,6 +464,48 @@ function Profile() {
             )}
           </div>
         </article>
+
+        {/* Admin Control Center Portal (Admins & Moderators) */}
+        {adminRole?.canReview && (
+          <article className="rounded-3xl bg-paper border border-brand-orange/30 p-6 shadow-xs relative overflow-hidden">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-brand-orange/15 text-brand-orange border border-brand-orange/20 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-serif font-bold text-ink text-base">Admin Control Center</h3>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-orange/15 text-brand-orange border border-brand-orange/30">
+                    Web Only
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  {isWeb
+                    ? "Manage community trust scores, ID verifications, safety reports, and meetups on the Web portal."
+                    : "Administrative tools are restricted to desktop web browsers for security & compliance."}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-border/80">
+              {isWeb ? (
+                <Link
+                  to="/admin"
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-brand-orange text-white text-xs font-semibold hover:opacity-90 transition shadow-sm"
+                >
+                  <Monitor className="w-4 h-4" />
+                  <span>Launch Web Admin Portal</span>
+                  <ArrowRight className="w-4 h-4 ml-auto" />
+                </Link>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-background border border-border text-xs text-muted-foreground flex items-center gap-3">
+                  <Monitor className="w-4 h-4 text-brand-orange shrink-0" />
+                  <span>Open <strong>bondoo.app/admin</strong> in your PC/laptop web browser.</span>
+                </div>
+              )}
+            </div>
+          </article>
+        )}
 
         <button
           onClick={handleSignOut}

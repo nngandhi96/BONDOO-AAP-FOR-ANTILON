@@ -188,7 +188,13 @@ export const updateAdminUserVerification = createServerFn({ method: "POST" })
     await checkAdminOrMod(supabase, userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const patch: Record<string, any> = {};
+    type ProfileUpdate = {
+      phone_verified?: boolean;
+      gov_id_verified?: boolean;
+      selfie_verified?: boolean;
+      background_check_status?: "pending" | "approved" | "failed";
+    };
+    const patch: ProfileUpdate = {};
     if (data.phone_verified !== undefined) patch.phone_verified = data.phone_verified;
     if (data.gov_id_verified !== undefined) patch.gov_id_verified = data.gov_id_verified;
     if (data.selfie_verified !== undefined) patch.selfie_verified = data.selfie_verified;
@@ -253,7 +259,7 @@ export const listAdminMeetups = createServerFn({ method: "GET" })
     // Enrich with user profiles
     const userIds = Array.from(
       new Set([
-        ...(meetups ?? []).flatMap((m) => [m.initiator_id, m.partner_id]),
+        ...(meetups ?? []).flatMap((m) => [m.proposer_id, m.recipient_id]),
         ...(activities ?? []).map((a) => a.host_id),
       ]),
     );
@@ -270,8 +276,8 @@ export const listAdminMeetups = createServerFn({ method: "GET" })
     return {
       meetups: (meetups ?? []).map((m) => ({
         ...m,
-        initiator: pmap.get(m.initiator_id) ?? null,
-        partner: pmap.get(m.partner_id) ?? null,
+        initiator: pmap.get(m.proposer_id) ?? null,
+        partner: pmap.get(m.recipient_id) ?? null,
       })),
       activities: (activities ?? []).map((a) => ({
         ...a,
