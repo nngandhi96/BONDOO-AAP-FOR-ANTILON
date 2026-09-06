@@ -104,10 +104,32 @@ function AuthScreen() {
         return;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(getAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
+  }
+
+  function getAuthErrorMessage(err: unknown): string {
+    if (!err) return "Something went wrong. Please try again.";
+    if (typeof err === "string") {
+      if (err === "{}" || !err.trim()) {
+        return "Unable to send verification email. Supabase email limit exceeded or SMTP not configured.";
+      }
+      return err;
+    }
+    if (typeof err === "object" && err !== null) {
+      const e = err as { message?: string; msg?: string; error_description?: string; name?: string; status?: number };
+      const msg = e.message || e.msg || e.error_description;
+      if (!msg || msg === "{}" || msg.trim() === "") {
+        return "Unable to send verification email. Supabase email limit exceeded or SMTP not configured.";
+      }
+      if (msg.toLowerCase().includes("error sending confirmation email") || e.name === "AuthRetryableFetchError") {
+        return "Unable to send verification email. Supabase email limit exceeded or SMTP not configured in Supabase dashboard.";
+      }
+      return msg;
+    }
+    return "Something went wrong. Please try again.";
   }
 
   async function handleVerifyOtp(otpCode?: string) {
@@ -208,7 +230,7 @@ function AuthScreen() {
       setResendCooldown(60);
       setInfo("A new 6-digit verification code was sent to your email.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not resend code");
+      setError(getAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
