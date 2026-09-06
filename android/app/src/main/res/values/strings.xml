@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bondoo</string>
+    <string name="title_activity_main">Bondoo</string>
+    <string name="package_name">com.bondoo.connect</string>
+    <string name="custom_url_scheme">com.bondoo.connect</string>
+</resources>
