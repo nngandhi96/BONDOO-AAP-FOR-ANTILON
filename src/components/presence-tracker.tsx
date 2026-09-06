@@ -14,8 +14,8 @@ export function PresenceTracker() {
     let cancelled = false;
 
     const join = async () => {
-      const { data } = await supabase.auth.getUser();
-      const uid = data.user?.id ?? null;
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id ?? null;
       if (cancelled) return;
       if (uid === currentUserId) return;
       // Tear down previous channel (user changed / signed out)

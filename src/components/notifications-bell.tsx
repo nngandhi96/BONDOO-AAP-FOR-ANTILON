@@ -17,17 +17,18 @@ export function NotificationsBell() {
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getUser().then(({ data: u }) => {
-      if (!mounted || !u.user) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted || !session?.user) return;
+      const uid = session.user.id;
       const channel = supabase
-        .channel(`notif-${u.user.id}`)
+        .channel(`notif-${uid}`)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "notifications",
-            filter: `user_id=eq.${u.user.id}`,
+            filter: `user_id=eq.${uid}`,
           },
           () => {
             qc.invalidateQueries({ queryKey: ["notifications"] });

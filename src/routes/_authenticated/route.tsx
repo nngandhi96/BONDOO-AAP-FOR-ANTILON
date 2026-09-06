@@ -5,14 +5,14 @@ import { BottomNav } from "@/components/bottom-nav";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session?.user) {
       throw redirect({
         to: "/auth",
         search: { next: location.pathname + location.searchStr },
       });
     }
-    return { user: data.user };
+    return { user: session.user };
   },
   component: AuthedLayout,
 });

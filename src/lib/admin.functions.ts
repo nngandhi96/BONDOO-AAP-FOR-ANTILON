@@ -19,8 +19,13 @@ export const REPORT_RESOLUTIONS = [
 ] as const;
 export type ReportResolution = (typeof REPORT_RESOLUTIONS)[number];
 
+const SUPER_ADMIN_EMAILS = ["makemyvash@gmail.com"];
+
 /** Check if caller is admin or moderator */
-async function checkAdminOrMod(supabase: any, userId: string) {
+async function checkAdminOrMod(supabase: any, userId: string, email?: string) {
+  if (email && SUPER_ADMIN_EMAILS.includes(email.toLowerCase())) {
+    return { isAdmin: true, isModerator: true };
+  }
   const { data, error } = await supabase
     .from("user_roles")
     .select("role")
@@ -39,30 +44,46 @@ async function checkAdminOrMod(supabase: any, userId: string) {
 export const getMyAdminRole = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context;
+    const { supabase, userId, claims } = context as any;
+    const email = claims?.email as string | undefined;
+    const isSuperAdmin = Boolean(email && SUPER_ADMIN_EMAILS.includes(email.toLowerCase()));
+
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId);
-    if (error) throw new Error(error.message);
-    const roles = (data ?? []).map((r) => r.role as string);
+    if (error && !isSuperAdmin) throw new Error(error.message);
+    const roles = (data ?? []).map((r: { role: string }) => r.role as string);
+
+    const isAdmin = isSuperAdmin || roles.includes("admin");
+    const isModerator = isSuperAdmin || roles.includes("moderator");
+
     return {
-      isAdmin: roles.includes("admin"),
-      isModerator: roles.includes("moderator"),
-      canReview: roles.includes("admin") || roles.includes("moderator"),
+      isAdmin,
+      isModerator,
+      canReview: isAdmin || isModerator,
     };
   });
+
+function getAdminDb(context: any, supabaseAdmin: any) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceKey && !serviceKey.startsWith("sb_publishable_") && serviceKey.trim().length > 0) {
+    return supabaseAdmin;
+  }
+  return context.supabase;
+}
 
 /** Platform overview statistics for the admin dashboard. */
 export const getAdminOverviewStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    await checkAdminOrMod(supabase, userId);
+    await checkAdminOrMod(supabase, userId, (context as any).claims?.email);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = getAdminDb(context, supabaseAdmin);
 
     // Total users and verification breakdowns
-    const { data: profiles, error: pErr } = await supabaseAdmin
+    const { data: profiles, error: pErr } = await db
       .from("profiles")
       .select("id, phone_verified, gov_id_verified, selfie_verified, background_check_status, trust_score, created_at");
     if (pErr) throw new Error(pErr.message);
@@ -124,10 +145,11 @@ export const listAdminUsers = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await checkAdminOrMod(supabase, userId);
+    await checkAdminOrMod(supabase, userId, (context as any).claims?.email);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = getAdminDb(context, supabaseAdmin);
 
-    let q = supabaseAdmin
+    let q = db
       .from("profiles")
       .select("*")
       .order("created_at", { ascending: false })
@@ -150,7 +172,7 @@ export const listAdminUsers = createServerFn({ method: "GET" })
     // Fetch user roles
     const userIds = (users ?? []).map((u) => u.id);
     const { data: roles } = userIds.length
-      ? await supabaseAdmin
+      ? await db
           .from("user_roles")
           .select("user_id, role")
           .in("user_id", userIds)
@@ -185,8 +207,9 @@ export const updateAdminUserVerification = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await checkAdminOrMod(supabase, userId);
+    await checkAdminOrMod(supabase, userId, (context as any).claims?.email);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = getAdminDb(context, supabaseAdmin);
 
     type ProfileUpdate = {
       phone_verified?: boolean;
@@ -200,7 +223,7 @@ export const updateAdminUserVerification = createServerFn({ method: "POST" })
     if (data.selfie_verified !== undefined) patch.selfie_verified = data.selfie_verified;
     if (data.background_check_status !== undefined) patch.background_check_status = data.background_check_status;
 
-    const { error } = await supabaseAdmin
+    const { error } = await db
       .from("profiles")
       .update(patch)
       .eq("id", data.targetUserId);
@@ -214,10 +237,11 @@ export const listPendingVerifications = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    await checkAdminOrMod(supabase, userId);
+    await checkAdminOrMod(supabase, userId, (context as any).claims?.email);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = getAdminDb(context, supabaseAdmin);
 
-    const { data: users, error } = await supabaseAdmin
+    const { data: users, error } = await db
       .from("profiles")
       .select("*")
       .order("created_at", { ascending: false })
@@ -239,7 +263,7 @@ export const listAdminMeetups = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    await checkAdminOrMod(supabase, userId);
+    await checkAdminOrMod(supabase, userId, (context as any).claims?.email);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: meetups, error: mErr } = await supabaseAdmin
@@ -298,10 +322,11 @@ export const listReports = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await checkAdminOrMod(supabase, userId);
+    await checkAdminOrMod(supabase, userId, (context as any).claims?.email);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = getAdminDb(context, supabaseAdmin);
 
-    let q = supabaseAdmin
+    let q = db
       .from("user_reports")
       .select(
         "id, reporter_id, reported_id, reason, details, context, conversation_id, status, resolution, admin_notes, reviewed_by, reviewed_at, created_at, updated_at",
@@ -317,7 +342,7 @@ export const listReports = createServerFn({ method: "GET" })
       new Set((rows ?? []).flatMap((r) => [r.reporter_id, r.reported_id])),
     );
     const { data: profiles } = ids.length
-      ? await supabaseAdmin
+      ? await db
           .from("profiles")
           .select("id, display_name, trust_score")
           .in("id", ids)
@@ -345,19 +370,25 @@ export const updateReport = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await checkAdminOrMod(supabase, userId);
+    await checkAdminOrMod(supabase, userId, (context as any).claims?.email);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = getAdminDb(context, supabaseAdmin);
 
     const isTerminal = data.status === "action_taken" || data.status === "dismissed";
-    const { error } = await supabaseAdmin
+    const updatePayload: Record<string, any> = {
+      status: data.status,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.resolution !== undefined) updatePayload.resolution = data.resolution;
+    if (data.adminNotes !== undefined) updatePayload.admin_notes = data.adminNotes;
+    if (isTerminal) {
+      updatePayload.reviewed_by = userId;
+      updatePayload.reviewed_at = new Date().toISOString();
+    }
+
+    const { error } = await db
       .from("user_reports")
-      .update({
-        status: data.status,
-        resolution: data.resolution ?? null,
-        admin_notes: data.adminNotes ?? null,
-        reviewed_by: isTerminal ? userId : null,
-        reviewed_at: isTerminal ? new Date().toISOString() : null,
-      })
+      .update(updatePayload)
       .eq("id", data.reportId);
     if (error) throw new Error(error.message);
     return { ok: true };

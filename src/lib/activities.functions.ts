@@ -67,25 +67,20 @@ export const listActivities = createServerFn({ method: "GET" })
       .select("id, display_name, trust_score, avatar_path")
       .in("id", hostIds);
 
-    const profileEntries = await Promise.all(
-      (profiles ?? []).map(async (p) => {
-        let avatar_url: string | null = null;
-        if (p.avatar_path) {
-          try {
-            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-            const { data: signed } = await supabaseAdmin.storage
-              .from("avatars")
-              .createSignedUrl(p.avatar_path, 3600);
-            avatar_url = signed?.signedUrl ?? null;
-          } catch {}
-          if (!avatar_url) {
-            avatar_url = supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
-          }
-        }
-        return [p.id, { ...p, avatar_url }] as const;
-      }),
+    const { batchGetSignedAvatarUrls } = await import("@/lib/avatar.server");
+    const avatarMap = await batchGetSignedAvatarUrls(
+      (profiles ?? []).map((p) => p.avatar_path),
     );
-    const pmap = new Map(profileEntries);
+
+    const pmap = new Map(
+      (profiles ?? []).map((p) => [
+        p.id,
+        {
+          ...p,
+          avatar_url: p.avatar_path ? avatarMap.get(p.avatar_path) ?? null : null,
+        },
+      ]),
+    );
 
     return rows.map((r) => {
       const cat = r.category as (typeof CATEGORIES)[number];

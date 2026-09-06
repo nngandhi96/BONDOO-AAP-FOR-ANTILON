@@ -31,26 +31,20 @@ export const listConversations = createServerFn({ method: "GET" })
       .in("id", otherIds);
     if (pErr) throw new Error(pErr.message);
 
-    const profileEntries = await Promise.all(
-      (profiles ?? []).map(async (p) => {
-        let avatar_url: string | null = null;
-        if (p.avatar_path) {
-          try {
-            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-            const { data: signed } = await supabaseAdmin.storage
-              .from("avatars")
-              .createSignedUrl(p.avatar_path, 3600);
-            avatar_url = signed?.signedUrl ?? null;
-          } catch {}
-          if (!avatar_url) {
-            avatar_url = supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl;
-          }
-        }
-        return [p.id, { ...p, avatar_url }] as const;
-      }),
+    const { batchGetSignedAvatarUrls } = await import("@/lib/avatar.server");
+    const avatarMap = await batchGetSignedAvatarUrls(
+      (profiles ?? []).map((p) => p.avatar_path),
     );
 
-    const profileMap = new Map(profileEntries);
+    const profileMap = new Map(
+      (profiles ?? []).map((p) => [
+        p.id,
+        {
+          ...p,
+          avatar_url: p.avatar_path ? avatarMap.get(p.avatar_path) ?? null : null,
+        },
+      ]),
+    );
 
     // Last message per conversation
     const convoIds = convos.map((c) => c.id);
@@ -181,19 +175,8 @@ export const getConversation = createServerFn({ method: "GET" })
       .eq("id", otherId)
       .maybeSingle();
 
-    let avatar_url: string | null = null;
-    if (other?.avatar_path) {
-      try {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: signed } = await supabaseAdmin.storage
-          .from("avatars")
-          .createSignedUrl(other.avatar_path, 3600);
-        avatar_url = signed?.signedUrl ?? null;
-      } catch {}
-      if (!avatar_url) {
-        avatar_url = supabase.storage.from("avatars").getPublicUrl(other.avatar_path).data.publicUrl;
-      }
-    }
+    const { getSingleSignedAvatarUrl } = await import("@/lib/avatar.server");
+    const avatar_url = await getSingleSignedAvatarUrl(other?.avatar_path);
 
     const { data: messages, error: mErr } = await supabase
       .from("messages")
@@ -301,24 +284,15 @@ export const searchUsers = createServerFn({ method: "GET" })
       .limit(20);
     if (error) throw new Error(error.message);
 
-    const withAvatars = await Promise.all(
-      (rows ?? []).map(async (u) => {
-        let avatar_url: string | null = null;
-        if (u.avatar_path) {
-          try {
-            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-            const { data: signed } = await supabaseAdmin.storage
-              .from("avatars")
-              .createSignedUrl(u.avatar_path, 3600);
-            avatar_url = signed?.signedUrl ?? null;
-          } catch {}
-          if (!avatar_url) {
-            avatar_url = supabase.storage.from("avatars").getPublicUrl(u.avatar_path).data.publicUrl;
-          }
-        }
-        return { ...u, avatar_url };
-      }),
+    const { batchGetSignedAvatarUrls } = await import("@/lib/avatar.server");
+    const avatarMap = await batchGetSignedAvatarUrls(
+      (rows ?? []).map((u) => u.avatar_path),
     );
+
+    const withAvatars = (rows ?? []).map((u) => ({
+      ...u,
+      avatar_url: u.avatar_path ? avatarMap.get(u.avatar_path) ?? null : null,
+    }));
     return withAvatars;
   });
 
