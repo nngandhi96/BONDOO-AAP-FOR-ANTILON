@@ -1,14 +1,13 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.bondoo',
+  appId: 'com.bondoo.connect',
   appName: 'Bondoo',
   webDir: 'dist',
   server: {
     // Bondoo is a TanStack Start (SSR) app, so the Android wrapper loads
-    // the live hosted URL instead of a static export. Replace this with
-    // your own domain once you connect one.
-    url: 'https://bondoo-connect.lovable.app',
+    // the live hosted URL instead of a static export.
+    url: 'https://bondoo-connect-main.vercel.app',
     cleartext: false,
     androidScheme: 'https',
   },

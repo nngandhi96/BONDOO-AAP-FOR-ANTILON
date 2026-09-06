@@ -2,7 +2,7 @@
 
 This project is a TanStack Start SSR web app. To ship it on Google Play, we
 wrap it with **Capacitor** so it runs as a native Android app that loads the
-hosted Bondoo URL (`https://bondoo-connect.lovable.app`).
+hosted Bondoo URL (`https://bondoo-connect-main.vercel.app`).
 
 > ⚠️ Capacitor's native tooling (Android Studio, Gradle, JDK 17) can't run
 > inside Lovable's sandbox. Do the steps below **locally on your machine**
