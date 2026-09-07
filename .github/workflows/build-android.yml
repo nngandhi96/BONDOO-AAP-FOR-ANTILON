@@ -51,9 +51,9 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build_debug.log || {
-            echo "### ❌ Debug APK Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ Debug APK Error Reason" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 60 build_debug.log >> $GITHUB_STEP_SUMMARY
+            sed -n '/\* What went wrong:/,/BUILD FAILED/p' build_debug.log >> $GITHUB_STEP_SUMMARY || tail -n 50 build_debug.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           }
@@ -63,9 +63,9 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew bundleRelease --no-daemon --stacktrace 2>&1 | tee build_release.log || {
-            echo "### ❌ Release AAB Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ Release AAB Error Reason" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 60 build_release.log >> $GITHUB_STEP_SUMMARY
+            sed -n '/\* What went wrong:/,/BUILD FAILED/p' build_release.log >> $GITHUB_STEP_SUMMARY || tail -n 50 build_release.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           }
