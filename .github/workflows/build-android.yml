@@ -38,21 +38,37 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android Platform 35
+      - name: Install Android Platform 35 & 36
         run: |
           yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" "platforms;android-36" "build-tools;35.0.0" || true
 
       - name: Make Gradlew executable
         run: chmod +x android/gradlew
 
       - name: Build Debug APK (For direct phone installation & testing)
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build_debug.log || {
+            echo "### ❌ Debug APK Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 60 build_debug.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
 
       - name: Build Release AAB (For Google Play Store upload)
         working-directory: android
-        run: ./gradlew bundleRelease --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew bundleRelease --no-daemon --stacktrace 2>&1 | tee build_release.log || {
+            echo "### ❌ Release AAB Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 60 build_release.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -67,12 +83,3 @@ jobs:
           name: bondoo-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 14
-
-      - name: Upload Gradle Build Error Logs (on failure)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-build-logs
-          path: |
-            android/app/build/reports/
-            ~/.gradle/daemon/
