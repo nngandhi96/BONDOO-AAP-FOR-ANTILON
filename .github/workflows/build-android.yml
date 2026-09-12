@@ -37,11 +37,13 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 'latest'
 
-      - name: Install Android Platform 35 & 36
+      - name: Accept Android SDK Licenses & Install Platform 35
         run: |
           yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-35" "platforms;android-36" "build-tools;35.0.0" || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Make Gradlew executable
         run: chmod +x android/gradlew
@@ -50,10 +52,10 @@ jobs:
         working-directory: android
         run: |
           set -o pipefail
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build_debug.log || {
-            echo "### ❌ Debug APK Error Reason" >> $GITHUB_STEP_SUMMARY
+          ./gradlew assembleDebug --no-daemon --console=plain --stacktrace 2>&1 | tee build_debug.log || {
+            echo "### ❌ Debug APK Build Failed" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            sed -n '/\* What went wrong:/,/BUILD FAILED/p' build_debug.log >> $GITHUB_STEP_SUMMARY || tail -n 50 build_debug.log >> $GITHUB_STEP_SUMMARY
+            tail -n 150 build_debug.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           }
@@ -62,10 +64,10 @@ jobs:
         working-directory: android
         run: |
           set -o pipefail
-          ./gradlew bundleRelease --no-daemon --stacktrace 2>&1 | tee build_release.log || {
-            echo "### ❌ Release AAB Error Reason" >> $GITHUB_STEP_SUMMARY
+          ./gradlew bundleRelease --no-daemon --console=plain --stacktrace 2>&1 | tee build_release.log || {
+            echo "### ❌ Release AAB Build Failed" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            sed -n '/\* What went wrong:/,/BUILD FAILED/p' build_release.log >> $GITHUB_STEP_SUMMARY || tail -n 50 build_release.log >> $GITHUB_STEP_SUMMARY
+            tail -n 150 build_release.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           }
@@ -83,3 +85,13 @@ jobs:
           name: bondoo-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 14
+
+      - name: Upload Build Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-logs
+          path: |
+            android/build_debug.log
+            android/build_release.log
+          retention-days: 7
