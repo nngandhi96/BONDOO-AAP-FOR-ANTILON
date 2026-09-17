@@ -35,15 +35,25 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: 'latest'
-
-      - name: Accept Android SDK Licenses & Install Platforms
+      - name: Configure Android SDK & Accept Licenses
         run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-35" "platforms;android-36" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
+          
+          # Locate sdkmanager in pre-installed Android SDK
+          if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          elif command -v sdkmanager > /dev/null 2>&1; then
+            SDKM="sdkmanager"
+          else
+            SDKM=$(find "$ANDROID_HOME" -name sdkmanager -type f 2>/dev/null | head -n 1)
+          fi
+          
+          echo "Found sdkmanager at: $SDKM"
+          if [ -n "$SDKM" ] && [ -x "$SDKM" ]; then
+            yes | "$SDKM" --licenses || true
+            "$SDKM" "platforms;android-35" "build-tools;35.0.0" || true
+          fi
 
       - name: Make Gradlew executable
         run: chmod +x android/gradlew
