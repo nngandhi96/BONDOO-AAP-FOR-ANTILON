@@ -30,13 +30,26 @@ function saveConsent(): AgeConsent {
   return consent;
 }
 
-export function AgeGate({ onConfirm }: { onConfirm?: (c: AgeConsent) => void }) {
+export function AgeGate({
+  onConfirm,
+  forceOpen,
+  onClose,
+}: {
+  onConfirm?: (c: AgeConsent) => void;
+  forceOpen?: boolean;
+  onClose?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [declined, setDeclined] = useState(false);
 
   useEffect(() => {
-    setOpen(!getStoredAgeConsent());
-  }, []);
+    if (forceOpen) {
+      setOpen(true);
+      setDeclined(false);
+    } else if (!getStoredAgeConsent()) {
+      setOpen(true);
+    }
+  }, [forceOpen]);
 
   if (!open) return null;
 
@@ -50,7 +63,11 @@ export function AgeGate({ onConfirm }: { onConfirm?: (c: AgeConsent) => void }) 
             come back when you're old enough.
           </p>
           <button
-            onClick={() => setDeclined(false)}
+            onClick={() => {
+              setDeclined(false);
+              setOpen(false);
+              onClose?.();
+            }}
             className="mt-6 text-primary text-sm font-medium"
           >
             Go back
@@ -84,6 +101,7 @@ export function AgeGate({ onConfirm }: { onConfirm?: (c: AgeConsent) => void }) 
               const c = saveConsent();
               setOpen(false);
               onConfirm?.(c);
+              onClose?.();
             }}
             className="w-full rounded-2xl bg-ink text-background font-semibold py-3.5"
           >

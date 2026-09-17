@@ -11,12 +11,56 @@ function safeNext(input: unknown): string {
   return input;
 }
 
+export type AuthSearch = {
+  next?: string;
+  code?: string;
+  error?: string;
+  error_code?: string;
+  error_description?: string;
+};
+
+function GoogleIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+      />
+    </svg>
+  );
+}
+
 export const Route = createFileRoute("/auth")({
-  validateSearch: (s: Record<string, unknown>): { next?: string } => {
+  validateSearch: (s: Record<string, unknown>): AuthSearch => {
+    const res: AuthSearch = {};
     if (typeof s.next === "string" && s.next) {
-      return { next: safeNext(s.next) };
+      res.next = safeNext(s.next);
     }
-    return {};
+    if (typeof s.code === "string" && s.code) {
+      res.code = s.code;
+    }
+    if (typeof s.error === "string" && s.error) {
+      res.error = s.error;
+    }
+    if (typeof s.error_code === "string" && s.error_code) {
+      res.error_code = s.error_code;
+    }
+    if (typeof s.error_description === "string" && s.error_description) {
+      res.error_description = s.error_description;
+    }
+    return res;
   },
   head: () => ({
     meta: [
@@ -29,12 +73,15 @@ export const Route = createFileRoute("/auth")({
 
 function AuthScreen() {
   const navigate = useNavigate();
-  const { next = "/dashboard" } = Route.useSearch();
+  const search = Route.useSearch();
+  const next = search.next || "/dashboard";
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [showAgeGate, setShowAgeGate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -42,12 +89,90 @@ function AuthScreen() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  // If already signed in, bounce to dashboard.
+  // Handle auth session, OAuth callback code exchange, and reactive auth state changes
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) window.location.replace(next);
+    let isMounted = true;
+
+    const syncAgeConsent = async (userId: string) => {
+      const consent = getStoredAgeConsent();
+      if (consent) {
+        try {
+          await supabase
+            .from("profiles")
+            .update({ age_confirmed_at: consent.confirmedAt })
+            .eq("id", userId);
+        } catch (e) {
+          console.warn("[Auth] Failed to update age_confirmed_at", e);
+        }
+      }
+    };
+
+    // 1. Subscribe to auth state changes (e.g. after OAuth redirect or signin)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (!isMounted) return;
+        if (session?.user) {
+          await syncAgeConsent(session.user.id);
+          window.location.replace(safeNext(next));
+        }
+      }
+    );
+
+    // 2. Check if already signed in on initial load
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!isMounted) return;
+      if (data.session?.user) {
+        await syncAgeConsent(data.session.user.id);
+        window.location.replace(safeNext(next));
+      }
     });
-  }, [navigate, next]);
+
+    // 3. Check for OAuth code in search params or window.location
+    const code =
+      search.code ||
+      (typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("code")
+        : null);
+
+    if (code) {
+      setLoading(true);
+      supabase.auth
+        .exchangeCodeForSession(code)
+        .then(async ({ data, error: exchangeError }) => {
+          if (!isMounted) return;
+          if (exchangeError) {
+            setLoading(false);
+            setError(getAuthErrorMessage(exchangeError));
+          } else if (data.session?.user) {
+            await syncAgeConsent(data.session.user.id);
+            window.location.replace(safeNext(next));
+          } else {
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          setLoading(false);
+          setError(getAuthErrorMessage(err));
+        });
+    }
+
+    // 4. Check for OAuth error in URL search or hash
+    if (search.error_description || search.error) {
+      setError(decodeURIComponent(search.error_description || search.error || "Authentication failed."));
+    } else if (typeof window !== "undefined" && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const hashErr = hashParams.get("error_description") || hashParams.get("error");
+      if (hashErr) {
+        setError(decodeURIComponent(hashErr));
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [next, search.code, search.error, search.error_description]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -114,7 +239,7 @@ function AuthScreen() {
     if (!err) return "Something went wrong. Please try again.";
     if (typeof err === "string") {
       if (err === "{}" || !err.trim()) {
-        return "Unable to send verification email. Supabase email limit exceeded or SMTP not configured.";
+        return "Unable to complete request. Supabase email limit exceeded or SMTP not configured.";
       }
       return err;
     }
@@ -122,10 +247,25 @@ function AuthScreen() {
       const e = err as { message?: string; msg?: string; error_description?: string; name?: string; status?: number };
       const msg = e.message || e.msg || e.error_description;
       if (!msg || msg === "{}" || msg.trim() === "") {
-        return "Unable to send verification email. Supabase email limit exceeded or SMTP not configured.";
+        return "Unable to connect to authentication server. Please check your network connection.";
       }
-      if (msg.toLowerCase().includes("error sending confirmation email") || e.name === "AuthRetryableFetchError") {
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes("failed to fetch") ||
+        lower.includes("networkerror") ||
+        lower.includes("enotfound") ||
+        e.name === "AuthRetryableFetchError"
+      ) {
+        return "Unable to reach the authentication server. Please verify your internet connection or make sure your Supabase project is active (not paused).";
+      }
+      if (lower.includes("error sending confirmation email")) {
         return "Unable to send verification email. Supabase email limit exceeded or SMTP not configured in Supabase dashboard.";
+      }
+      if (lower.includes("provider is not enabled") || lower.includes("unsupported provider")) {
+        return "Google sign-in is not enabled in your Supabase project. Please enable Google provider in the Supabase Authentication dashboard.";
+      }
+      if (lower.includes("redirect uri") || lower.includes("redirect_uri")) {
+        return "Redirect URI mismatch. Please add this app URL to Allowed Redirect URLs in Supabase and Google Cloud Console.";
       }
       return msg;
     }
@@ -238,24 +378,40 @@ function AuthScreen() {
 
   async function handleGoogle() {
     setError(null);
-    if (!getStoredAgeConsent()) {
-      setError("Please confirm your age to continue.");
+    const consent = getStoredAgeConsent();
+    if (!consent) {
+      setShowAgeGate(true);
       return;
     }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth?next=${encodeURIComponent(next)}`,
-      },
-    });
-    if (error) {
-      setError(error.message);
+    setGoogleLoading(true);
+    try {
+      const redirectUrl = `${window.location.origin}/auth?next=${encodeURIComponent(next)}`;
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
+      if (oauthError) throw oauthError;
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      setError(getAuthErrorMessage(err));
+      setGoogleLoading(false);
     }
   }
 
   return (
     <main className="min-h-screen bg-background flex flex-col relative overflow-hidden">
-      <AgeGate />
+      <AgeGate
+        forceOpen={showAgeGate}
+        onClose={() => setShowAgeGate(false)}
+        onConfirm={() => {
+          setShowAgeGate(false);
+          handleGoogle();
+        }}
+      />
       <div
         aria-hidden
         className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full opacity-40 blur-3xl"
@@ -438,12 +594,25 @@ function AuthScreen() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
+            {search.code && loading && (
+              <div className="p-3.5 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center gap-3 text-primary text-xs font-semibold">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <span>Signing you in with Google…</span>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleGoogle}
-              className="w-full rounded-2xl bg-paper border border-border text-ink font-medium py-3.5 hover:bg-surface transition"
+              disabled={googleLoading || loading}
+              className="w-full rounded-2xl bg-paper border border-border text-ink font-medium py-3.5 hover:bg-surface active:scale-[0.99] transition flex items-center justify-center gap-3 disabled:opacity-60 shadow-sm"
             >
-              Continue with Google
+              {googleLoading ? (
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <GoogleIcon className="w-5 h-5" />
+              )}
+              <span>{googleLoading ? "Connecting to Google…" : "Continue with Google"}</span>
             </button>
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
