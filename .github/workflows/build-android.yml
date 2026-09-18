@@ -29,6 +29,14 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Sync Capacitor Android
+        run: |
+          mkdir -p dist
+          if [ ! -f "dist/index.html" ]; then
+            echo '<!DOCTYPE html><html><head><title>Bondoo</title></head><body><div id="root"></div></body></html>' > dist/index.html
+          fi
+          npx cap sync android
+
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
@@ -39,6 +47,7 @@ jobs:
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           
           # Locate sdkmanager in pre-installed Android SDK
           if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
@@ -52,7 +61,7 @@ jobs:
           echo "Found sdkmanager at: $SDKM"
           if [ -n "$SDKM" ] && [ -x "$SDKM" ]; then
             yes | "$SDKM" --licenses || true
-            "$SDKM" "platforms;android-35" "build-tools;35.0.0" || true
+            "$SDKM" "platforms;android-35" "platforms;android-36" "build-tools;35.0.0" || true
           fi
 
       - name: Make Gradlew executable
@@ -65,11 +74,11 @@ jobs:
           ./gradlew assembleDebug --no-daemon --console=plain --stacktrace 2>&1 | tee build_debug.log || {
             echo "### ❌ Debug APK Build Failed" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 150 build_debug.log >> $GITHUB_STEP_SUMMARY
+            grep -A 25 -B 2 "\* What went wrong:" build_debug.log >> $GITHUB_STEP_SUMMARY || tail -n 100 build_debug.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             while IFS= read -r line; do
               echo "::error title=Gradle::$line"
-            done < <(tail -n 25 build_debug.log)
+            done < <(grep -A 15 "\* What went wrong:" build_debug.log || tail -n 25 build_debug.log)
             exit 1
           }
 
@@ -80,11 +89,11 @@ jobs:
           ./gradlew bundleRelease --no-daemon --console=plain --stacktrace 2>&1 | tee build_release.log || {
             echo "### ❌ Release AAB Build Failed" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 150 build_release.log >> $GITHUB_STEP_SUMMARY
+            grep -A 25 -B 2 "\* What went wrong:" build_release.log >> $GITHUB_STEP_SUMMARY || tail -n 100 build_release.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             while IFS= read -r line; do
               echo "::error title=Gradle::$line"
-            done < <(tail -n 25 build_release.log)
+            done < <(grep -A 15 "\* What went wrong:" build_release.log || tail -n 25 build_release.log)
             exit 1
           }
 
