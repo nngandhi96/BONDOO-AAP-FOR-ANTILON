@@ -17,6 +17,8 @@ export type AuthSearch = {
   error?: string;
   error_code?: string;
   error_description?: string;
+  mode?: string;
+  type?: string;
 };
 
 function GoogleIcon({ className = "w-5 h-5" }: { className?: string }) {
@@ -60,6 +62,12 @@ export const Route = createFileRoute("/auth")({
     if (typeof s.error_description === "string" && s.error_description) {
       res.error_description = s.error_description;
     }
+    if (typeof s.mode === "string" && s.mode) {
+      res.mode = s.mode;
+    }
+    if (typeof s.type === "string" && s.type) {
+      res.type = s.type;
+    }
     return res;
   },
   head: () => ({
@@ -71,13 +79,17 @@ export const Route = createFileRoute("/auth")({
   component: AuthScreen,
 });
 
+export type AuthMode = "signin" | "signup" | "forgot" | "reset";
+
 function AuthScreen() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const next = search.next || "/dashboard";
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<AuthMode>(search.mode === "reset" ? "reset" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -86,6 +98,7 @@ function AuthScreen() {
   const [info, setInfo] = useState<string | null>(null);
 
   const [isOtpStep, setIsOtpStep] = useState(false);
+  const [otpType, setOtpType] = useState<"signup" | "recovery">("signup");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -107,11 +120,18 @@ function AuthScreen() {
       }
     };
 
-    // 1. Subscribe to auth state changes (e.g. after OAuth redirect or signin)
+    // 1. Subscribe to auth state changes (e.g. after OAuth redirect, signin, or password recovery)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (!isMounted) return;
-        if (session?.user) {
+        if (event === "PASSWORD_RECOVERY") {
+          setMode("reset");
+          setIsOtpStep(false);
+          setError(null);
+          setInfo("Please set your new password below.");
+          return;
+        }
+        if (session?.user && mode !== "reset" && search.mode !== "reset") {
           await syncAgeConsent(session.user.id);
           window.location.replace(safeNext(next));
         }
@@ -121,6 +141,14 @@ function AuthScreen() {
     // 2. Check if already signed in on initial load
     supabase.auth.getSession().then(async ({ data }) => {
       if (!isMounted) return;
+      if (
+        search.mode === "reset" ||
+        mode === "reset" ||
+        (typeof window !== "undefined" && window.location.hash.includes("type=recovery"))
+      ) {
+        setMode("reset");
+        return;
+      }
       if (data.session?.user) {
         await syncAgeConsent(data.session.user.id);
         window.location.replace(safeNext(next));
@@ -144,6 +172,12 @@ function AuthScreen() {
             setLoading(false);
             setError(getAuthErrorMessage(exchangeError));
           } else if (data.session?.user) {
+            if (search.mode === "reset" || search.type === "recovery") {
+              setMode("reset");
+              setLoading(false);
+              setInfo("Please set your new password below.");
+              return;
+            }
             await syncAgeConsent(data.session.user.id);
             window.location.replace(safeNext(next));
           } else {
@@ -172,7 +206,7 @@ function AuthScreen() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [next, search.code, search.error, search.error_description]);
+  }, [next, search.code, search.error, search.error_description, search.mode, search.type, mode]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -180,6 +214,57 @@ function AuthScreen() {
     const timer = setTimeout(() => setResendCooldown((prev) => prev - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCooldown]);
+
+  async function handleSendResetEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    if (!email.trim()) {
+      setError("Please enter your email address.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const redirectUrl = `${window.location.origin}/auth?mode=reset&next=${encodeURIComponent(next)}`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: redirectUrl,
+      });
+      if (error) throw error;
+      setInfo(`Password reset link sent to ${email.trim()}. Please check your inbox and spam folder.`);
+    } catch (err) {
+      setError(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdatePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    if (newPassword.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (error) throw error;
+      setInfo("Password updated successfully! Redirecting…");
+      setTimeout(() => {
+        window.location.replace(safeNext(next));
+      }, 1200);
+    } catch (err) {
+      setError(getAuthErrorMessage(err));
+      setLoading(false);
+    }
+  }
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -281,6 +366,19 @@ function AuthScreen() {
     }
     setLoading(true);
     try {
+      if (otpType === "recovery") {
+        const { error } = await supabase.auth.verifyOtp({
+          email: email.trim().toLowerCase(),
+          token: code,
+          type: "recovery",
+        });
+        if (error) throw error;
+        setIsOtpStep(false);
+        setMode("reset");
+        setInfo("Code verified! Please set your new password below.");
+        return;
+      }
+
       const { data, error } = await supabase.auth.verifyOtp({
         email: email.trim().toLowerCase(),
         token: code,
@@ -362,6 +460,16 @@ function AuthScreen() {
     setInfo(null);
     setLoading(true);
     try {
+      if (otpType === "recovery") {
+        const redirectUrl = `${window.location.origin}/auth?mode=reset&next=${encodeURIComponent(next)}`;
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+          redirectTo: redirectUrl,
+        });
+        if (error) throw error;
+        setResendCooldown(60);
+        setInfo("A new recovery link was sent to your email.");
+        return;
+      }
       const { error } = await supabase.auth.resend({
         type: "signup",
         email: email.trim().toLowerCase(),
@@ -433,22 +541,45 @@ function AuthScreen() {
 
         <div className="mt-12">
           <p className="text-xs uppercase tracking-[0.22em] text-brand-orange font-semibold">
-            {isOtpStep ? "Verify Email" : mode === "signup" ? "New here" : "Welcome back"}
+            {isOtpStep
+              ? otpType === "recovery"
+                ? "Recovery Code"
+                : "Verify Email"
+              : mode === "forgot"
+              ? "Account Recovery"
+              : mode === "reset"
+              ? "New Password"
+              : mode === "signup"
+              ? "New here"
+              : "Welcome back"}
           </p>
           <h1 className="display mt-3 text-[2.8rem] leading-[0.95] text-ink">
             {isOtpStep ? (
               <>Enter the <em className="text-primary not-italic">code</em>.</>
+            ) : mode === "forgot" ? (
+              <>Reset your <em className="text-primary not-italic">password</em>.</>
+            ) : mode === "reset" ? (
+              <>Create new <em className="text-primary not-italic">password</em>.</>
             ) : mode === "signup" ? (
               <>Join the <em className="text-primary not-italic">club</em>.</>
             ) : (
               <>Sign in to <em className="text-primary not-italic">Bondoo</em>.</>
             )}
           </h1>
-          {isOtpStep && (
+          {isOtpStep ? (
             <p className="text-xs text-muted-foreground mt-2">
-              We emailed a 6-digit verification code to <span className="font-semibold text-ink">{email}</span>.
+              We emailed a 6-digit {otpType === "recovery" ? "recovery" : "verification"} code to{" "}
+              <span className="font-semibold text-ink">{email}</span>.
             </p>
-          )}
+          ) : mode === "forgot" ? (
+            <p className="text-xs text-muted-foreground mt-2">
+              Enter your email and we'll send you a password reset link.
+            </p>
+          ) : mode === "reset" ? (
+            <p className="text-xs text-muted-foreground mt-2">
+              Set a strong password for your Bondoo account (minimum 6 characters).
+            </p>
+          ) : null}
         </div>
 
         {isOtpStep ? (
@@ -498,12 +629,15 @@ function AuthScreen() {
                 type="button"
                 onClick={() => {
                   setIsOtpStep(false);
+                  if (otpType === "recovery") {
+                    setMode("forgot");
+                  }
                   setError(null);
                   setInfo(null);
                 }}
                 className="hover:text-ink transition underline underline-offset-2"
               >
-                ← Edit email / password
+                ← {otpType === "recovery" ? "Back to recovery" : "Edit email / password"}
               </button>
 
               <button
@@ -520,6 +654,142 @@ function AuthScreen() {
               </button>
             </div>
           </div>
+        ) : mode === "forgot" ? (
+          <form onSubmit={handleSendResetEmail} className="mt-8 space-y-4">
+            <div className="bg-paper rounded-2xl px-4 py-3.5 border border-border focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition">
+              <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+                Registered Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                className="mt-1 w-full bg-transparent outline-none text-ink placeholder:text-muted-foreground/60"
+              />
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            {info && (
+              <p className="text-sm text-primary bg-primary/10 rounded-xl px-3 py-2">
+                {info}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-2xl bg-ink text-background font-semibold py-4 disabled:opacity-60 transition shadow-sm cursor-pointer"
+            >
+              {loading ? "Sending reset link…" : "Send Reset Link"}
+            </button>
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signin");
+                  setError(null);
+                  setInfo(null);
+                }}
+                className="hover:text-ink transition font-medium"
+              >
+                ← Back to Sign in
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!email.trim()) {
+                    setError("Please enter your email above first.");
+                    return;
+                  }
+                  setOtpType("recovery");
+                  setIsOtpStep(true);
+                  setError(null);
+                  setInfo(null);
+                }}
+                className="text-primary hover:underline font-medium"
+              >
+                Have an OTP code?
+              </button>
+            </div>
+          </form>
+        ) : mode === "reset" ? (
+          <form onSubmit={handleUpdatePassword} className="mt-8 space-y-3">
+            <div className="bg-paper rounded-2xl px-4 py-3.5 border border-border focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition">
+              <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+                New Password
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+                autoComplete="new-password"
+                placeholder="••••••••"
+                className="mt-1 w-full bg-transparent outline-none text-ink placeholder:text-muted-foreground/60"
+              />
+            </div>
+
+            <div className="bg-paper rounded-2xl px-4 py-3.5 border border-border focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition">
+              <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+                autoComplete="new-password"
+                placeholder="••••••••"
+                className="mt-1 w-full bg-transparent outline-none text-ink placeholder:text-muted-foreground/60"
+              />
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            {info && (
+              <p className="text-sm text-primary bg-primary/10 rounded-xl px-3 py-2">
+                {info}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-2xl bg-ink text-background font-semibold py-4 disabled:opacity-60 transition shadow-sm cursor-pointer"
+            >
+              {loading ? "Updating password…" : "Save New Password"}
+            </button>
+
+            <div className="text-center text-xs text-muted-foreground pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signin");
+                  setError(null);
+                  setInfo(null);
+                }}
+                className="hover:text-ink transition font-medium"
+              >
+                ← Back to Sign in
+              </button>
+            </div>
+          </form>
         ) : (
           <>
             <form onSubmit={handleEmail} className="mt-8 space-y-3">
@@ -552,9 +822,24 @@ function AuthScreen() {
                 />
               </div>
               <div className="bg-paper rounded-2xl px-4 py-3.5 border border-border focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition">
-                <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
-                  Password
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+                    Password
+                  </label>
+                  {mode === "signin" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("forgot");
+                        setError(null);
+                        setInfo(null);
+                      }}
+                      className="text-[11px] text-primary hover:underline underline-offset-2 font-medium cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
                 <input
                   type="password"
                   value={password}
