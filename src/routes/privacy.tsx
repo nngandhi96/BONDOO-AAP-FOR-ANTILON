@@ -110,10 +110,10 @@ function PrivacyPage() {
             protection authority.
           </Section>
 
-          <Section title="8. Children">
-            Bondoo is not for anyone under 14. We do not knowingly collect
-            data from minors under 14. If you believe a minor has an account, contact
-            us and we will remove it.
+          <Section title="8. Age restriction & Children">
+            Bondoo is strictly for users aged 18 and older. We do not knowingly collect
+            data from anyone under 18. If you believe someone under 18 has created an account, contact
+            us and we will promptly investigate and remove it.
           </Section>
 
           <Section title="9. Changes">

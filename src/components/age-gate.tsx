@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "bondoo.age_consent.v1";
-const MIN_AGE = 14;
+const STORAGE_KEY = "bondoo.age_consent.v2";
+const MIN_AGE = 18;
 
 export type AgeConsent = {
   confirmedAt: string; // ISO
@@ -57,7 +57,7 @@ export function AgeGate({
     return (
       <div className="fixed inset-0 z-[60] bg-ink/70 backdrop-blur-sm flex items-center justify-center px-6">
         <div className="max-w-sm w-full bg-paper rounded-3xl border border-border p-7 text-center">
-          <h2 className="display text-3xl text-ink">Sorry — you must be 14+</h2>
+          <h2 className="display text-3xl text-ink">Sorry — you must be {MIN_AGE}+</h2>
           <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
             Bondoo is only available to people aged {MIN_AGE} and above. Please
             come back when you're old enough.
