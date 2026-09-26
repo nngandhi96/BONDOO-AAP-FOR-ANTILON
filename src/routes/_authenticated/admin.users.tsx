@@ -16,6 +16,7 @@ import {
   Filter,
   UserCheck,
   Sparkles,
+  Calendar,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/_authenticated/admin/users")({
 function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "verified" | "unverified">("all");
+  const [onlyAfter21Sep, setOnlyAfter21Sep] = useState(false);
   const queryClient = useQueryClient();
 
   const fetchUsers = useServerFn(listAdminUsers);
@@ -40,6 +42,19 @@ function AdminUsersPage() {
     queryKey: ["admin-users", search, filter],
     queryFn: () => fetchUsers({ data: { search, filter } }),
   });
+
+  const after21SepDate = new Date("2026-09-21T00:00:00");
+  const displayedUsers = (users ?? []).filter((u: any) => {
+    if (onlyAfter21Sep) {
+      if (!u.created_at) return false;
+      return new Date(u.created_at) >= after21SepDate;
+    }
+    return true;
+  });
+
+  const after21Count = (users ?? []).filter(
+    (u: any) => u.created_at && new Date(u.created_at) >= after21SepDate,
+  ).length;
 
   const mutation = useMutation({
     mutationFn: (data: {
@@ -60,9 +75,25 @@ function AdminUsersPage() {
       title="User Management"
       subtitle="Search community members, inspect trust scores, and manually moderate verification levels."
       actions={
-        <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-paper border border-border">
-          <UserCheck className="w-4 h-4 text-brand-orange" />
-          <span>{users?.length ?? 0} Users Loaded</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-paper border border-border">
+            <UserCheck className="w-4 h-4 text-brand-orange" />
+            <span>
+              {displayedUsers.length} of {users?.length ?? 0} Users
+            </span>
+          </div>
+          <button
+            onClick={() => setOnlyAfter21Sep(!onlyAfter21Sep)}
+            className={`text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition cursor-pointer ${
+              onlyAfter21Sep
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                : "bg-emerald-500/10 text-emerald-700 border-emerald-500/30 hover:bg-emerald-500/20"
+            }`}
+            title="Click to toggle filter for users who joined after 21 Sep"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>{after21Count} Joined After 21 Sep</span>
+          </button>
         </div>
       }
     >
@@ -80,7 +111,7 @@ function AdminUsersPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Filter className="w-4 h-4 text-muted-foreground hidden sm:inline" />
             {(["all", "verified", "unverified"] as const).map((f) => (
               <button
@@ -95,6 +126,17 @@ function AdminUsersPage() {
                 {f}
               </button>
             ))}
+            <button
+              onClick={() => setOnlyAfter21Sep(!onlyAfter21Sep)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
+                onlyAfter21Sep
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-paper border border-border text-muted-foreground hover:text-ink"
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>After 21 Sep</span>
+            </button>
           </div>
         </div>
 
@@ -104,11 +146,13 @@ function AdminUsersPage() {
             <div className="p-12 text-center text-sm text-muted-foreground animate-pulse">
               Loading users directory…
             </div>
-          ) : !users || users.length === 0 ? (
+          ) : !displayedUsers || displayedUsers.length === 0 ? (
             <div className="p-12 text-center">
               <p className="text-sm font-semibold text-ink">No users found</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Try refining your search query or reset the filter.
+                {onlyAfter21Sep
+                  ? "No users found who joined after 21 Sep 2026."
+                  : "Try refining your search query or reset the filter."}
               </p>
             </div>
           ) : (
@@ -117,6 +161,7 @@ function AdminUsersPage() {
                 <thead>
                   <tr className="border-b border-border bg-background/50 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
                     <th className="py-3.5 px-4">User</th>
+                    <th className="py-3.5 px-4">Joined Date</th>
                     <th className="py-3.5 px-4">Trust Score</th>
                     <th className="py-3.5 px-4">Phone</th>
                     <th className="py-3.5 px-4">Gov ID</th>
@@ -127,9 +172,11 @@ function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {users.map((u: any) => {
+                  {displayedUsers.map((u: any) => {
                     const isMod = u.roles?.includes("moderator");
                     const isAdmin = u.roles?.includes("admin");
+                    const isAfter21Sep =
+                      u.created_at && new Date(u.created_at) >= after21SepDate;
 
                     return (
                       <tr key={u.id} className="hover:bg-background/40 transition">
@@ -153,6 +200,36 @@ function AdminUsersPage() {
                                 {u.neighbourhood || "No location set"}
                               </p>
                             </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-ink text-xs">
+                                {u.created_at
+                                  ? new Date(u.created_at).toLocaleDateString("en-IN", {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    })
+                                  : "-"}
+                              </span>
+                              {isAfter21Sep && (
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/15 px-1.5 py-0.5 rounded-md border border-emerald-500/20">
+                                  After 21 Sep
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-muted-foreground">
+                              {u.created_at
+                                ? new Date(u.created_at).toLocaleTimeString("en-IN", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })
+                                : ""}
+                            </span>
                           </div>
                         </td>
 
