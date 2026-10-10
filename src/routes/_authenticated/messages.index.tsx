@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listConversations, searchUsers, getOrCreateConversation } from "@/lib/chat.functions";
 import { listIncomingRequests } from "@/lib/connections.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/messages/")({
   head: () => ({
@@ -44,8 +45,33 @@ function MessagesPage() {
   const { data: conversations, isLoading, refetch } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => fetchList(),
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
+
+  // Realtime updates for conversation list (instant updates when new message arrives)
+  useEffect(() => {
+    const channel = supabase
+      .channel("messages-index-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations" },
+        () => {
+          void refetch();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        () => {
+          void refetch();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
 
   const { data: results } = useQuery({
     queryKey: ["userSearch", debounced],

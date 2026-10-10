@@ -10,14 +10,6 @@ const config: CapacitorConfig = {
     url: 'https://bondoo-connect-main.vercel.app',
     cleartext: false,
     androidScheme: 'https',
-    allowNavigation: [
-      '*',
-      'bondoo-connect-main.vercel.app',
-      '*.vercel.app',
-      '*.supabase.co',
-      '*.googleapis.com',
-      '*.gstatic.com',
-    ],
   },
   android: {
     allowMixedContent: false,

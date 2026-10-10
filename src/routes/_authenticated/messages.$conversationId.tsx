@@ -72,10 +72,10 @@ function ChatPage() {
   const messages = data?.messages ?? [];
   const me = data?.me;
 
-  // Realtime channel: typing + instant message broadcast (bypasses RLS-postgres_changes lag)
+  // Unified realtime channel: typing, broadcast messages, read receipts, and database changes
   useEffect(() => {
     if (!me) return;
-    const channel = supabase.channel(`conv:${conversationId}`, {
+    const channel = supabase.channel(`chat:${conversationId}`, {
       config: { broadcast: { self: false } },
     });
 
@@ -175,6 +175,81 @@ function ChatPage() {
               : current,
         );
       })
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const row = payload.new as BroadcastMsg;
+          if (!row?.id) return;
+          qc.setQueryData(
+            ["conversation", conversationId],
+            (current: typeof data) => {
+              if (!current) return current;
+              if (current.messages.some((m) => m.id === row.id)) return current;
+              return {
+                ...current,
+                messages: [...current.messages, row],
+              };
+            },
+          );
+          qc.invalidateQueries({ queryKey: ["conversations"] });
+          if (row.sender_id !== me && !row.delivered_at) {
+            const at = new Date().toISOString();
+            void supabase
+              .from("messages")
+              .update({ delivered_at: at })
+              .eq("id", row.id)
+              .is("delivered_at", null);
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            delivered_at: string | null;
+            read_at: string | null;
+          };
+          qc.setQueryData(
+            ["conversation", conversationId],
+            (current: typeof data) =>
+              current
+                ? {
+                    ...current,
+                    messages: current.messages.map((m) =>
+                      m.id === row.id
+                        ? { ...m, delivered_at: row.delivered_at, read_at: row.read_at }
+                        : m,
+                    ),
+                  }
+                : current,
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "meetups",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: ["meetups", conversationId] });
+        },
+      )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           void channel.track({ userId: me, at: new Date().toISOString() });
@@ -265,80 +340,7 @@ function ChatPage() {
     })();
   }, [messages, me, conversationId, qc]);
 
-  // Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel(`messages:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        () => {
-          qc.invalidateQueries({ queryKey: ["conversation", conversationId] });
-          qc.invalidateQueries({ queryKey: ["meetups", conversationId] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const row = payload.new as {
-            id: string;
-            delivered_at: string | null;
-            read_at: string | null;
-          };
-          qc.setQueryData(
-            ["conversation", conversationId],
-            (current: typeof data) =>
-              current
-                ? {
-                    ...current,
-                    messages: current.messages.map((m) =>
-                      m.id === row.id
-                        ? { ...m, delivered_at: row.delivered_at, read_at: row.read_at }
-                        : m,
-                    ),
-                  }
-                : current,
-          );
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [conversationId, qc]);
 
-  // Realtime: refetch meetups on any change
-  useEffect(() => {
-    const channel = supabase
-      .channel(`meetups:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "meetups",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        () => {
-          qc.invalidateQueries({ queryKey: ["meetups", conversationId] });
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [conversationId, qc]);
 
   // First-visit safety popup
   useEffect(() => {
@@ -361,19 +363,53 @@ function ChatPage() {
     const body = bodyRaw.trim();
     if (!body && !attachment) return;
     if (sending) return;
+
+    const currentMe = me || (await supabase.auth.getSession()).data.session?.user?.id;
+    if (!currentMe) {
+      setSendError("Your session has expired. Please sign in again.");
+      return;
+    }
+
     setSendError(null);
     setSending(true);
-    try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData.user) {
-        throw new Error("Your session has expired. Please sign in again.");
-      }
 
+    // Optimistic message for 0ms instant UI feedback
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const optimisticMessage = {
+      id: tempId,
+      sender_id: currentMe,
+      body: body.length > 0 ? body : null,
+      created_at: new Date().toISOString(),
+      delivered_at: null,
+      read_at: null,
+      attachment_path: attachment?.path ?? null,
+      attachment_type: attachment?.type ?? null,
+      attachment_name: attachment?.name ?? null,
+    };
+
+    setText("");
+    broadcastTyping("stop_typing");
+    lastTypingSentRef.current = 0;
+
+    qc.setQueryData(
+      ["conversation", conversationId],
+      (current: typeof data) =>
+        current
+          ? {
+              ...current,
+              messages: [...current.messages, optimisticMessage],
+            }
+          : current,
+    );
+
+    requestAnimationFrame(() => inputRef.current?.focus());
+
+    try {
       const { data: message, error } = await supabase
         .from("messages")
         .insert({
           conversation_id: conversationId,
-          sender_id: authData.user.id,
+          sender_id: currentMe,
           body: body.length > 0 ? body : null,
           attachment_path: attachment?.path ?? null,
           attachment_type: attachment?.type ?? null,
@@ -385,35 +421,43 @@ function ChatPage() {
         .single();
       if (error) throw new Error(error.message);
 
-      setText("");
-      broadcastTyping("stop_typing");
-      lastTypingSentRef.current = 0;
+      // Smoothly replace the temporary optimistic message with the permanent DB row
       qc.setQueryData(
         ["conversation", conversationId],
         (current: typeof data) =>
           current
             ? {
                 ...current,
-                messages: current.messages.some((item) => item.id === message.id)
-                  ? current.messages
-                  : [...current.messages, message],
+                messages: current.messages.map((item) =>
+                  item.id === tempId ? message : item,
+                ),
               }
             : current,
       );
+
       // Push instantly to the other participant via broadcast
       typingChannelRef.current?.send({
         type: "broadcast",
         event: "new_message",
         payload: { message },
       });
+
       // Fire-and-forget push notification for background delivery
       void notifyMsg({ data: { messageId: message.id } }).catch(() => {});
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["conversation", conversationId] }),
-        qc.invalidateQueries({ queryKey: ["conversations"] }),
-      ]);
-      requestAnimationFrame(() => inputRef.current?.focus());
+      void qc.invalidateQueries({ queryKey: ["conversations"] });
     } catch (error) {
+      // Revert optimistic message on error and restore input text
+      qc.setQueryData(
+        ["conversation", conversationId],
+        (current: typeof data) =>
+          current
+            ? {
+                ...current,
+                messages: current.messages.filter((item) => item.id !== tempId),
+              }
+            : current,
+      );
+      setText(bodyRaw);
       setSendError(error instanceof Error ? error.message : "Message could not be sent. Please try again.");
     } finally {
       setSending(false);

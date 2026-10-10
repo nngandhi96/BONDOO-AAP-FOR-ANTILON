@@ -5,15 +5,7 @@
 	"server": {
 		"url": "https://bondoo-connect-main.vercel.app",
 		"cleartext": false,
-		"androidScheme": "https",
-		"allowNavigation": [
-			"*",
-			"bondoo-connect-main.vercel.app",
-			"*.vercel.app",
-			"*.supabase.co",
-			"*.googleapis.com",
-			"*.gstatic.com"
-		]
+		"androidScheme": "https"
 	},
 	"android": {
 		"allowMixedContent": false

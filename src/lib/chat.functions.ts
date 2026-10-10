@@ -46,13 +46,14 @@ export const listConversations = createServerFn({ method: "GET" })
       ]),
     );
 
-    // Last message per conversation
+    // Last message per conversation (bounded to avoid downloading entire chat history)
     const convoIds = convos.map((c) => c.id);
     const { data: lastMsgs } = await supabase
       .from("messages")
       .select("conversation_id, body, sender_id, created_at, attachment_path, attachment_type, attachment_name")
       .in("conversation_id", convoIds)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(Math.max(50, convoIds.length * 4));
 
     const lastByConv = new Map<
       string,
