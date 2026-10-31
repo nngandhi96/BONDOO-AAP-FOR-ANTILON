@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { App } from "@capacitor/app";
 import { supabase } from "@/integrations/supabase/client";
 import { BondooLogo } from "@/components/bondoo-logo";
 import { AgeGate, getStoredAgeConsent } from "@/components/age-gate";
+import { isNativeMobileApp } from "@/lib/platform";
 
 function safeNext(input: unknown): string {
   if (typeof input !== "string" || !input) return "/dashboard";
@@ -138,7 +140,36 @@ function AuthScreen() {
       }
     );
 
-    // 2. Check if already signed in on initial load
+    // 2. Listen for native Android deep link events (e.g. bondoo://auth?code=...)
+    let appUrlListenerCleanup: (() => void) | null = null;
+    if (isNativeMobileApp()) {
+      App.addListener("appUrlOpen", async (event) => {
+        try {
+          const rawUrl = event.url;
+          if (!rawUrl) return;
+          const dummyOrigin = "https://bondoo-connect-main.vercel.app";
+          const parsed = new URL(rawUrl.replace("bondoo://auth", `${dummyOrigin}/auth`));
+          const deepCode = parsed.searchParams.get("code");
+          if (deepCode) {
+            setLoading(true);
+            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(deepCode);
+            if (!exchangeError && data.session?.user) {
+              await syncAgeConsent(data.session.user.id);
+              window.location.replace(safeNext(next));
+            } else if (exchangeError) {
+              setLoading(false);
+              setError(getAuthErrorMessage(exchangeError));
+            }
+          }
+        } catch (e) {
+          console.warn("[Auth] Failed to process appUrlOpen deep link", e);
+        }
+      }).then((handle) => {
+        appUrlListenerCleanup = () => handle.remove();
+      });
+    }
+
+    // 3. Check if already signed in on initial load
     supabase.auth.getSession().then(async ({ data }) => {
       if (!isMounted) return;
       if (
@@ -155,7 +186,7 @@ function AuthScreen() {
       }
     });
 
-    // 3. Check for OAuth code in search params or window.location
+    // 4. Check for OAuth code in search params or window.location
     const code =
       search.code ||
       (typeof window !== "undefined"
@@ -163,6 +194,14 @@ function AuthScreen() {
         : null);
 
     if (code) {
+      // If user landed on mobile browser after Google OAuth, forward to native app
+      if (typeof window !== "undefined" && !isNativeMobileApp()) {
+        const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobileBrowser) {
+          window.location.href = `bondoo://auth?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`;
+        }
+      }
+
       setLoading(true);
       supabase.auth
         .exchangeCodeForSession(code)
@@ -205,6 +244,7 @@ function AuthScreen() {
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      if (appUrlListenerCleanup) appUrlListenerCleanup();
     };
   }, [next, search.code, search.error, search.error_description, search.mode, search.type, mode]);
 
@@ -498,6 +538,10 @@ function AuthScreen() {
         provider: "google",
         options: {
           redirectTo: redirectUrl,
+          queryParams: {
+            prompt: "select_account",
+            access_type: "offline",
+          },
         },
       });
       if (oauthError) throw oauthError;

@@ -89,10 +89,10 @@ export const getAdminOverviewStats = createServerFn({ method: "GET" })
     if (pErr) throw new Error(pErr.message);
 
     const totalUsers = profiles?.length ?? 0;
-    const phoneVerified = profiles?.filter((p) => p.phone_verified).length ?? 0;
-    const govIdVerified = profiles?.filter((p) => p.gov_id_verified).length ?? 0;
-    const selfieVerified = profiles?.filter((p) => p.selfie_verified).length ?? 0;
-    const backgroundApproved = profiles?.filter((p) => p.background_check_status === "approved").length ?? 0;
+    const phoneVerified = profiles?.filter((p: any) => p.phone_verified).length ?? 0;
+    const govIdVerified = profiles?.filter((p: any) => p.gov_id_verified).length ?? 0;
+    const selfieVerified = profiles?.filter((p: any) => p.selfie_verified).length ?? 0;
+    const backgroundApproved = profiles?.filter((p: any) => p.background_check_status === "approved").length ?? 0;
 
     // Reports counts
     const { data: reports, error: rErr } = await supabaseAdmin
@@ -170,7 +170,7 @@ export const listAdminUsers = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     // Fetch user roles
-    const userIds = (users ?? []).map((u) => u.id);
+    const userIds = (users ?? []).map((u: any) => u.id);
     const { data: roles } = userIds.length
       ? await db
           .from("user_roles")
@@ -185,7 +185,7 @@ export const listAdminUsers = createServerFn({ method: "GET" })
       rolesMap.set(r.user_id, list);
     }
 
-    return (users ?? []).map((u) => ({
+    return (users ?? []).map((u: any) => ({
       ...u,
       roles: rolesMap.get(u.id) ?? [],
     }));
@@ -251,7 +251,7 @@ export const listPendingVerifications = createServerFn({ method: "GET" })
 
     // Return users that are either not fully verified or have background pending
     return (users ?? []).filter(
-      (u) =>
+      (u: any) =>
         !u.gov_id_verified ||
         !u.selfie_verified ||
         u.background_check_status === "pending"
@@ -339,7 +339,7 @@ export const listReports = createServerFn({ method: "GET" })
 
     // Enrich with reporter/reported display names
     const ids = Array.from(
-      new Set((rows ?? []).flatMap((r) => [r.reporter_id, r.reported_id])),
+      new Set((rows ?? []).flatMap((r: any) => [r.reporter_id, r.reported_id])),
     );
     const { data: profiles } = ids.length
       ? await db
@@ -347,8 +347,8 @@ export const listReports = createServerFn({ method: "GET" })
           .select("id, display_name, trust_score")
           .in("id", ids)
       : { data: [] };
-    const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
-    return (rows ?? []).map((r) => ({
+    const pmap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+    return (rows ?? []).map((r: any) => ({
       ...r,
       reporter: pmap.get(r.reporter_id) ?? null,
       reported: pmap.get(r.reported_id) ?? null,

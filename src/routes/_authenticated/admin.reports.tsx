@@ -107,7 +107,7 @@ function AdminReportsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {reports.map((r) => (
+            {reports.map((r: any) => (
               <ReportCard key={r.id} report={r} />
             ))}
           </div>
