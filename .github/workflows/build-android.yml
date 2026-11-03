@@ -164,6 +164,11 @@ jobs:
           cp "$AAB_FILE" "Bondoo-v${VERSION_NAME}-release.aab"
           cp "$APK_FILE" "Bondoo-v${VERSION_NAME}-release.apk"
 
+          NOTES="## Bondoo Release v${VERSION_NAME} (Build ${VERSION_CODE})
+
+          - **Bondoo-v${VERSION_NAME}-release.aab**: Google Play Store App Bundle.
+          - **Bondoo-v${VERSION_NAME}-release.apk**: Signed Release APK."
+
           if gh release view "$TAG_NAME" > /dev/null 2>&1; then
             echo "Release $TAG_NAME already exists, uploading/overwriting assets..."
             gh release upload "$TAG_NAME" "Bondoo-v${VERSION_NAME}-release.aab" "Bondoo-v${VERSION_NAME}-release.apk" --clobber
@@ -173,9 +178,5 @@ jobs:
               "Bondoo-v${VERSION_NAME}-release.aab" \
               "Bondoo-v${VERSION_NAME}-release.apk" \
               --title "$RELEASE_TITLE" \
-              --notes "## Bondoo Release v${VERSION_NAME} (Build ${VERSION_CODE})
-
-### 📦 Files for Google Play Store & Android:
-- **\`Bondoo-v${VERSION_NAME}-release.aab\`**: Upload this Android App Bundle (.aab) directly to Google Play Console.
-- **\`Bondoo-v${VERSION_NAME}-release.apk\`**: Direct-install signed release APK for testing on physical devices."
+              --notes "$NOTES"
           fi
