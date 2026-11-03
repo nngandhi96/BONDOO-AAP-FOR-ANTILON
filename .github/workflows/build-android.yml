@@ -10,6 +10,15 @@ on:
       - 'package-lock.json'
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish as GitHub Release'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -67,49 +76,66 @@ jobs:
       - name: Make Gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Build Debug APK (For direct phone installation & testing)
-        working-directory: android
-        run: |
-          set -o pipefail
-          ./gradlew assembleDebug --no-daemon --console=plain --stacktrace 2>&1 | tee build_debug.log || {
-            echo "### ❌ Debug APK Build Failed" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            grep -A 25 -B 2 "\* What went wrong:" build_debug.log >> $GITHUB_STEP_SUMMARY || tail -n 100 build_debug.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            while IFS= read -r line; do
-              echo "::error title=Gradle::$line"
-            done < <(grep -A 15 "\* What went wrong:" build_debug.log || tail -n 25 build_debug.log)
-            exit 1
-          }
-
       - name: Build Release AAB (For Google Play Store upload)
         working-directory: android
         run: |
           set -o pipefail
-          ./gradlew bundleRelease --no-daemon --console=plain --stacktrace 2>&1 | tee build_release.log || {
+          ./gradlew bundleRelease --no-daemon --console=plain --stacktrace 2>&1 | tee build_release_aab.log || {
             echo "### ❌ Release AAB Build Failed" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            grep -A 25 -B 2 "\* What went wrong:" build_release.log >> $GITHUB_STEP_SUMMARY || tail -n 100 build_release.log >> $GITHUB_STEP_SUMMARY
+            grep -A 25 -B 2 "\* What went wrong:" build_release_aab.log >> $GITHUB_STEP_SUMMARY || tail -n 100 build_release_aab.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             while IFS= read -r line; do
               echo "::error title=Gradle::$line"
-            done < <(grep -A 15 "\* What went wrong:" build_release.log || tail -n 25 build_release.log)
+            done < <(grep -A 15 "\* What went wrong:" build_release_aab.log || tail -n 25 build_release_aab.log)
             exit 1
           }
 
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: bondoo-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 14
+      - name: Build Signed Release APK (For direct installation & testing)
+        working-directory: android
+        run: |
+          set -o pipefail
+          ./gradlew assembleRelease --no-daemon --console=plain --stacktrace 2>&1 | tee build_release_apk.log || {
+            echo "### ❌ Release APK Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -A 25 -B 2 "\* What went wrong:" build_release_apk.log >> $GITHUB_STEP_SUMMARY || tail -n 100 build_release_apk.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            while IFS= read -r line; do
+              echo "::error title=Gradle::$line"
+            done < <(grep -A 15 "\* What went wrong:" build_release_apk.log || tail -n 25 build_release_apk.log)
+            exit 1
+          }
 
-      - name: Upload Release AAB (Google Play Bundle)
+      - name: Build Debug APK (For development testing)
+        working-directory: android
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --console=plain --stacktrace 2>&1 | tee build_debug.log || {
+            echo "### ⚠️ Debug APK Build Failed (Non-critical)" >> $GITHUB_STEP_SUMMARY
+            tail -n 25 build_debug.log >> $GITHUB_STEP_SUMMARY || true
+          }
+
+      - name: Upload Release AAB (Google Play Store Bundle)
         uses: actions/upload-artifact@v4
         with:
           name: bondoo-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 14
+
+      - name: Upload Release APK (Signed Release APK)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bondoo-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14
+
+      - name: Upload Debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bondoo-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
 
       - name: Upload Build Logs
         if: always()
@@ -117,6 +143,39 @@ jobs:
         with:
           name: gradle-build-logs
           path: |
+            android/build_release_aab.log
+            android/build_release_apk.log
             android/build_debug.log
-            android/build_release.log
           retention-days: 7
+
+      - name: Publish to GitHub Releases
+        if: success() && (github.event_name == 'push' || github.event.inputs.create_release != 'false')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION_NAME=$(grep 'versionName' android/app/build.gradle | head -n 1 | awk -F '"' '{print $2}')
+          VERSION_CODE=$(grep 'versionCode' android/app/build.gradle | head -n 1 | awk '{print $2}')
+          TAG_NAME="v${VERSION_NAME}"
+          RELEASE_TITLE="Bondoo Release v${VERSION_NAME} (Build ${VERSION_CODE})"
+
+          AAB_FILE="android/app/build/outputs/bundle/release/app-release.aab"
+          APK_FILE="android/app/build/outputs/apk/release/app-release.apk"
+
+          cp "$AAB_FILE" "Bondoo-v${VERSION_NAME}-release.aab"
+          cp "$APK_FILE" "Bondoo-v${VERSION_NAME}-release.apk"
+
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists, uploading/overwriting assets..."
+            gh release upload "$TAG_NAME" "Bondoo-v${VERSION_NAME}-release.aab" "Bondoo-v${VERSION_NAME}-release.apk" --clobber
+          else
+            echo "Creating new GitHub release $TAG_NAME..."
+            gh release create "$TAG_NAME" \
+              "Bondoo-v${VERSION_NAME}-release.aab" \
+              "Bondoo-v${VERSION_NAME}-release.apk" \
+              --title "$RELEASE_TITLE" \
+              --notes "## Bondoo Release v${VERSION_NAME} (Build ${VERSION_CODE})
+
+### 📦 Files for Google Play Store & Android:
+- **\`Bondoo-v${VERSION_NAME}-release.aab\`**: Upload this Android App Bundle (.aab) directly to Google Play Console.
+- **\`Bondoo-v${VERSION_NAME}-release.apk\`**: Direct-install signed release APK for testing on physical devices."
+          fi
