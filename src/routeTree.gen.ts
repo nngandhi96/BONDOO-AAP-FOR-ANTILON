@@ -16,6 +16,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRouteImport } from './routes/[.well-known]/assetlinks[.]json'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
@@ -69,6 +70,12 @@ const Char91DotmcpChar93ListToolsRoute =
   Char91DotmcpChar93ListToolsRouteImport.update({
     id: '/.mcp/list-tools',
     path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRoute =
+  Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRouteImport.update({
+    id: '/.well-known/assetlinks.json',
+    path: '/.well-known/assetlinks.json',
     getParentRoute: () => rootRouteImport,
   } as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
@@ -184,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/assetlinks.json': typeof Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/messages': typeof AuthenticatedMessagesRouteWithChildren
@@ -211,6 +219,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/assetlinks.json': typeof Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -239,6 +248,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/assetlinks.json': typeof Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRouteWithChildren
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/.mcp/list-tools'
+    | '/.well-known/assetlinks.json'
     | '/.well-known/oauth-protected-resource'
     | '/dashboard'
     | '/messages'
@@ -295,6 +306,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/.mcp/list-tools'
+    | '/.well-known/assetlinks.json'
     | '/.well-known/oauth-protected-resource'
     | '/dashboard'
     | '/notifications'
@@ -322,6 +334,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/.mcp/list-tools'
+    | '/.well-known/assetlinks.json'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/dashboard'
     | '/_authenticated/messages'
@@ -351,6 +364,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
+  Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRoute: typeof Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -405,6 +419,13 @@ declare module '@tanstack/react-router' {
       path: '/.mcp/list-tools'
       fullPath: '/.mcp/list-tools'
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/assetlinks.json': {
+      id: '/.well-known/assetlinks.json'
+      path: '/.well-known/assetlinks.json'
+      fullPath: '/.well-known/assetlinks.json'
+      preLoaderRoute: typeof Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/oauth-protected-resource': {
@@ -604,6 +625,8 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
+  Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRoute:
+    Char91DotwellKnownChar93AssetlinksChar91DotChar93jsonRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
