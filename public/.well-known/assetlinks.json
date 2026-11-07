@@ -1,0 +1,16 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.bondoo.connect",
+      "sha256_cert_fingerprints": [
+        "61:74:B0:FA:9F:66:D2:D0:E8:CA:F0:E7:26:4B:32:C0:A5:39:4E:9E:58:D5:EE:39:EC:76:E7:A9:DF:BA:6E:97",
+        "3B:38:3C:17:00:B2:2F:1A:C2:DC:E7:4F:AD:45:14:5F:0E:02:53:6B:E5:DB:99:C3:3B:23:39:2C:98:C2:33:98",
+        "F5:C4:6D:F4:79:01:BD:86:78:17:5F:AD:6B:5A:D7:FC:8F:18:06:97:A0:B4:CC:0D:F3:4E:0B:DB:59:60:2C:BC"
+      ]
+    }
+  }
+]
