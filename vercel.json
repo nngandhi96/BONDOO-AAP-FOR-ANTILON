@@ -2,6 +2,14 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".output/public",
   "framework": "vite",
+  "build": {
+    "env": {
+      "DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS": "1"
+    }
+  },
+  "env": {
+    "DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS": "1"
+  },
   "headers": [
     {
       "source": "/.well-known/assetlinks.json",

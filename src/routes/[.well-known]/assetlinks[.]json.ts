@@ -31,3 +31,4 @@ export const Route = createFileRoute("/.well-known/assetlinks.json")({
     },
   },
 });
+
