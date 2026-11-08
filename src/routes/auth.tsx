@@ -149,7 +149,17 @@ function AuthScreen() {
           if (!rawUrl) return;
           const dummyOrigin = "https://bondoo-connect-main.vercel.app";
           const parsed = new URL(rawUrl.replace("bondoo://auth", `${dummyOrigin}/auth`));
-          const deepCode = parsed.searchParams.get("code");
+          let deepCode = parsed.searchParams.get("code");
+          if (!deepCode && parsed.hash) {
+            const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+            deepCode = hashParams.get("code");
+          }
+          const errDesc = parsed.searchParams.get("error_description") || parsed.searchParams.get("error");
+          if (errDesc) {
+            setLoading(false);
+            setError(decodeURIComponent(errDesc));
+            return;
+          }
           if (deepCode) {
             setLoading(true);
             const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(deepCode);
@@ -540,12 +550,18 @@ function AuthScreen() {
           redirectTo: redirectUrl,
           queryParams: {
             prompt: "select_account",
-            access_type: "offline",
           },
         },
       });
       if (oauthError) throw oauthError;
       if (data?.url) {
+        // If running inside Android app with native Chrome Custom Tabs launcher
+        const nativeAuth = typeof window !== "undefined" ? (window as unknown as { BondooNativeAuth?: { openSystemBrowser: (url: string) => void } }).BondooNativeAuth : undefined;
+        if (nativeAuth?.openSystemBrowser) {
+          nativeAuth.openSystemBrowser(data.url);
+          setGoogleLoading(false);
+          return;
+        }
         window.location.href = data.url;
       }
     } catch (err) {
