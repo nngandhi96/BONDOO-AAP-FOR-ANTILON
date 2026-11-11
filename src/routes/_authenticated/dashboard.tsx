@@ -26,6 +26,12 @@ import {
   DEFAULT_RADIUS_KM,
   type Coordinates,
 } from "@/lib/location";
+import {
+  getSavedTheme,
+  saveTheme,
+  applyThemeToDocument,
+  type ThemeMode,
+} from "@/lib/theme";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -139,6 +145,19 @@ function Dashboard() {
   const [showCityModal, setShowCityModal] = useState(false);
   const [draftCity, setDraftCity] = useState("");
   const [editCity, setEditCity] = useState("");
+
+  // Gen Z Theme mode toggle state (editorial vs genz)
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getSavedTheme());
+
+  useEffect(() => {
+    applyThemeToDocument(themeMode);
+  }, [themeMode]);
+
+  function handleToggleTheme() {
+    const nextTheme: ThemeMode = themeMode === "editorial" ? "genz" : "editorial";
+    setThemeMode(nextTheme);
+    saveTheme(nextTheme);
+  }
 
   const fetchProfile = useServerFn(getMyProfile);
   const fetchActivities = useServerFn(listActivities);
@@ -442,42 +461,103 @@ function Dashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-background pb-28 relative">
-      <header className="max-w-md mx-auto px-6 pt-8">
+    <main className="min-h-screen bg-background pb-28 relative transition-colors duration-300">
+      <header className="max-w-md mx-auto px-6 pt-7 transition-colors duration-300">
         <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.24em] text-muted-foreground font-semibold">
-          <span>{new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</span>
-          <span>Vol. 01 — Nearby</span>
+          {themeMode === "genz" ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.06] border border-white/10 backdrop-blur-md">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#CCFF00] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#CCFF00]"></span>
+              </span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-[#CCFF00]">
+                ⚡ LIVE · {selectedCity}
+              </span>
+            </div>
+          ) : (
+            <span>{new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} · Vol. 01</span>
+          )}
+
+          {/* Theme Mode Toggle Button */}
+          <button
+            type="button"
+            onClick={handleToggleTheme}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm transition active:scale-95 cursor-pointer ${
+              themeMode === "genz"
+                ? "bg-[#CCFF00] text-black border border-[#CCFF00] font-black shadow-[0_0_16px_rgba(204,255,0,0.45)] hover:scale-105"
+                : "bg-paper border border-border hover:border-brand-orange text-ink"
+            }`}
+            title={themeMode === "genz" ? "Switch to Editorial Zine Mode" : "Switch to Gen Z Mode"}
+          >
+            <span className="text-xs">{themeMode === "genz" ? "⚡" : "✨"}</span>
+            <span>{themeMode === "genz" ? "Zine Mode 📰" : "Gen Z Mode"}</span>
+          </button>
         </div>
-        <div className="mt-4 flex items-end justify-between border-b border-ink/80 pb-4">
+
+        <div className="mt-4 flex items-end justify-between border-b border-border/80 pb-4">
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-brand-orange font-semibold">
-              You are in
-            </p>
-            <h1 className="display text-[2.6rem] leading-[0.95] text-ink mt-1 truncate">
-              {profile?.neighbourhood || "Nearby"}<span className="text-brand-orange">.</span>
-            </h1>
-            {/* Header City Selector Chip with 100km Radius indicator */}
-            <button
-              type="button"
-              onClick={() => setShowCityModal(true)}
-              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-paper border border-border hover:border-brand-orange text-ink text-xs font-semibold shadow-sm transition active:scale-[0.98] cursor-pointer"
-              title="Filter by City · 100 km Radius"
-            >
-              <span className="text-brand-orange text-xs">{selectedCity === ALL_CITIES_LABEL ? "🌐" : "📍"}</span>
-              <span className="font-semibold">{selectedCity}</span>
-              {selectedCity !== ALL_CITIES_LABEL && (
-                <span className="text-[10px] text-brand-orange font-medium px-1.5 py-0.5 rounded-full bg-brand-orange/10">
-                  within 100km
-                </span>
-              )}
-              <span className="text-[10px] text-muted-foreground">▾</span>
-            </button>
+            {themeMode === "genz" ? (
+              <>
+                <p className="text-[11px] font-black uppercase tracking-widest text-[#CCFF00]">
+                  What's the Move
+                </p>
+                <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mt-0.5 truncate">
+                  {profile?.neighbourhood ? profile.neighbourhood.toUpperCase() : "NEARBY"}
+                  <span className="text-[#CCFF00]"> ⚡</span>
+                </h1>
+                {/* Header City Selector Badge */}
+                <button
+                  type="button"
+                  onClick={() => setShowCityModal(true)}
+                  className="mt-2.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.08] border border-white/20 hover:border-[#CCFF00] text-white text-xs font-bold shadow-lg transition active:scale-95 cursor-pointer backdrop-blur-md"
+                  title="Filter by City · 100 km Radius"
+                >
+                  <span className="text-sm">{selectedCity === ALL_CITIES_LABEL ? "🌐" : "📍"}</span>
+                  <span className="font-extrabold">{selectedCity}</span>
+                  {selectedCity !== ALL_CITIES_LABEL && (
+                    <span className="text-[10px] text-black bg-[#CCFF00] font-black px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(204,255,0,0.3)]">
+                      100 KM
+                    </span>
+                  )}
+                  <span className="text-xs text-white/50">▾</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-brand-orange font-semibold">
+                  You are in
+                </p>
+                <h1 className="display text-[2.6rem] leading-[0.95] text-ink mt-1 truncate">
+                  {profile?.neighbourhood || "Nearby"}<span className="text-brand-orange">.</span>
+                </h1>
+                {/* Header City Selector Chip with 100km Radius indicator */}
+                <button
+                  type="button"
+                  onClick={() => setShowCityModal(true)}
+                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-paper border border-border hover:border-brand-orange text-ink text-xs font-semibold shadow-sm transition active:scale-[0.98] cursor-pointer"
+                  title="Filter by City · 100 km Radius"
+                >
+                  <span className="text-brand-orange text-xs">{selectedCity === ALL_CITIES_LABEL ? "🌐" : "📍"}</span>
+                  <span className="font-semibold">{selectedCity}</span>
+                  {selectedCity !== ALL_CITIES_LABEL && (
+                    <span className="text-[10px] text-brand-orange font-medium px-1.5 py-0.5 rounded-full bg-brand-orange/10">
+                      within 100km
+                    </span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground">▾</span>
+                </button>
+              </>
+            )}
           </div>
           <div className="shrink-0 flex items-center gap-2">
             <NotificationsBell />
             <Link
               to="/profile"
-              className="h-11 w-11 rounded-full bg-paper flex items-center justify-center border border-border"
+              className={`h-11 w-11 rounded-full flex items-center justify-center border transition ${
+                themeMode === "genz"
+                  ? "bg-white/[0.08] border-white/20 hover:border-[#CCFF00]"
+                  : "bg-paper border-border"
+              }`}
               aria-label="Profile"
             >
               <BondooEyes className="h-4" />
@@ -495,11 +575,19 @@ function Dashboard() {
                 params: { meetupId: pendingReviews[0].meetup_id },
               })
             }
-            className="w-full mb-4 flex items-center gap-3 rounded-2xl bg-brand-orange/12 border border-brand-orange/30 px-4 py-3 text-left"
+            className={`w-full mb-4 flex items-center gap-3 rounded-2xl p-4 text-left transition ${
+              themeMode === "genz"
+                ? "bg-white/[0.05] border border-[#CCFF00]/40 backdrop-blur-md"
+                : "bg-brand-orange/12 border border-brand-orange/30"
+            }`}
           >
             <span className="text-xl">⭐</span>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-brand-orange font-semibold">
+              <p
+                className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${
+                  themeMode === "genz" ? "text-[#CCFF00]" : "text-brand-orange"
+                }`}
+              >
                 Rate your meetup
               </p>
               <p className="text-xs text-ink truncate">
@@ -511,91 +599,253 @@ function Dashboard() {
         )}
 
         <div className="flex items-center justify-between">
-          <div className="inline-flex rounded-full bg-surface p-1 border border-border">
-            {(["list", "map"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-5 py-1.5 text-sm font-medium rounded-full transition ${
-                  view === v ? "bg-ink text-background" : "text-muted-foreground"
-                }`}
-              >
-                {v === "list" ? "List" : "Map"}
-              </button>
-            ))}
+          <div
+            className={`inline-flex rounded-full p-1 border ${
+              themeMode === "genz"
+                ? "bg-white/[0.06] border-white/10 backdrop-blur-md"
+                : "bg-surface border-border"
+            }`}
+          >
+            {(["list", "map"] as const).map((v) => {
+              const active = view === v;
+              return (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={`px-5 py-1.5 text-sm rounded-full transition ${
+                    themeMode === "genz"
+                      ? active
+                        ? "bg-[#CCFF00] text-black font-black shadow-[0_0_14px_rgba(204,255,0,0.4)]"
+                        : "text-white/60 font-bold hover:text-white"
+                      : active
+                        ? "bg-ink text-background font-medium"
+                        : "text-muted-foreground font-medium"
+                  }`}
+                >
+                  {v === "list" ? "List" : "Map"}
+                </button>
+              );
+            })}
           </div>
           <button
             onClick={() => (myLoc ? setNearMe((v) => !v) : requestLocation())}
-            className={`text-[11px] uppercase tracking-[0.18em] font-semibold px-3 py-1.5 rounded-full border transition ${
-              nearMe
-                ? "bg-primary text-background border-primary"
-                : "bg-paper text-ink border-border"
-            }`}
+            className={
+              themeMode === "genz"
+                ? `text-[11px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full border transition active:scale-95 ${
+                    nearMe
+                      ? "bg-[#CCFF00] text-black border-[#CCFF00] shadow-[0_0_14px_rgba(204,255,0,0.4)]"
+                      : "bg-white/[0.06] text-white/80 border-white/15 hover:border-[#CCFF00]/50"
+                  }`
+                : `text-[11px] uppercase tracking-[0.18em] font-semibold px-3 py-1.5 rounded-full border transition ${
+                    nearMe
+                      ? "bg-primary text-background border-primary"
+                      : "bg-paper text-ink border-border"
+                  }`
+            }
           >
             {locBusy ? "Locating…" : nearMe ? "📍 Near me" : "📍 Sort near me"}
           </button>
         </div>
 
         <div className="mt-5 flex gap-2 overflow-x-auto -mx-6 px-6 no-scrollbar">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={`shrink-0 px-4 py-2 rounded-full text-sm border transition display italic ${
-                cat === c
-                  ? "bg-brand-orange text-ink border-brand-orange font-semibold"
-                  : "bg-paper text-ink border-border hover:bg-surface"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
+          {CATEGORIES.map((c) => {
+            const isActive = cat === c;
+            return (
+              <button
+                key={c}
+                onClick={() => setCat(c)}
+                className={
+                  themeMode === "genz"
+                    ? `shrink-0 px-4 py-2 rounded-full text-xs transition-all tracking-tight font-black ${
+                        isActive
+                          ? "bg-[#CCFF00] text-black border border-[#CCFF00] shadow-[0_0_18px_rgba(204,255,0,0.5)] scale-[1.03]"
+                          : "bg-white/[0.05] text-white/80 border border-white/10 hover:bg-white/[0.12] hover:text-white"
+                      }`
+                    : `shrink-0 px-4 py-2 rounded-full text-sm border transition display italic ${
+                        isActive
+                          ? "bg-brand-orange text-ink border-brand-orange font-semibold"
+                          : "bg-paper text-ink border-border hover:bg-surface"
+                      }`
+                }
+              >
+                {c}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="mt-5 flex items-center gap-3 rounded-2xl bg-primary/8 border border-primary/20 px-4 py-3">
-          <span className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm">
-            ✓
-          </span>
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-primary font-semibold">
-              Meet in public
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Parks · cafés · libraries. Never share your address.
-            </p>
+        {/* Safety Banner */}
+        {themeMode === "genz" ? (
+          <div className="mt-5 flex items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#CCFF00]/10 via-purple-500/10 to-transparent border border-[#CCFF00]/30 p-3.5 backdrop-blur-xl shadow-lg">
+            <div className="h-9 w-9 rounded-xl bg-[#CCFF00]/20 border border-[#CCFF00]/40 flex items-center justify-center text-lg shrink-0 shadow-[0_0_12px_rgba(204,255,0,0.3)]">
+              🛡️
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-wider text-[#CCFF00]">
+                Public spots only · Stay safe, stay real
+              </p>
+              <p className="text-[11px] text-white/70 font-medium">
+                Cafés, parks, campuses. Zero sketchiness, never share private addresses.
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-5 flex items-center gap-3 rounded-2xl bg-primary/8 border border-primary/20 px-4 py-3">
+            <span className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm">
+              ✓
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-primary font-semibold">
+                Meet in public
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Parks · cafés · libraries. Never share your address.
+              </p>
+            </div>
+          </div>
+        )}
 
         {view === "list" ? (
           isLoading ? (
             <p className="mt-10 text-center text-sm text-muted-foreground">Loading…</p>
           ) : filtered.length === 0 ? (
-            <div className="mt-10 text-center">
-              <p className="display text-2xl text-ink">
-                {selectedCity === ALL_CITIES_LABEL ? "Nothing yet" : `Nothing within 100 km of ${selectedCity} yet`}
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {selectedCity === ALL_CITIES_LABEL
-                  ? "Be the first — post an activity below."
-                  : `No activities found within 100 km of ${selectedCity}. Be the first to post, or switch cities.`}
-              </p>
-              {selectedCity !== ALL_CITIES_LABEL && (
-                <button
-                  type="button"
-                  onClick={() => handleSelectCity(ALL_CITIES_LABEL)}
-                  className="mt-4 px-4 py-2 rounded-full border border-border bg-paper text-xs font-semibold text-primary hover:bg-surface transition shadow-sm"
-                >
-                  🌐 View posts from All Cities
-                </button>
-              )}
-            </div>
+            themeMode === "genz" ? (
+              <div className="mt-10 text-center py-8 px-4 rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-xl">
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#CCFF00]/15 border border-[#CCFF00]/30 text-3xl shadow-[0_0_25px_rgba(204,255,0,0.3)] animate-bounce">
+                  ⚡
+                </div>
+                <h3 className="mt-4 text-2xl font-black text-white tracking-tight">
+                  {selectedCity === ALL_CITIES_LABEL ? "No moves yet" : `No moves in ${selectedCity} yet?`}
+                </h3>
+                <p className="mt-2 text-xs text-white/60 font-medium max-w-xs mx-auto">
+                  {selectedCity === ALL_CITIES_LABEL
+                    ? "Be the first to drop a plan and set the vibe."
+                    : `No moves planned in ${selectedCity} yet? Drop a plan and set the vibe ⚡`}
+                </p>
+                <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreate(true)}
+                    className="px-5 py-2.5 rounded-full bg-[#CCFF00] text-black font-black text-xs shadow-[0_0_20px_rgba(204,255,0,0.45)] hover:scale-105 active:scale-95 transition"
+                  >
+                    🚀 Drop a Plan
+                  </button>
+                  {selectedCity !== ALL_CITIES_LABEL && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectCity(ALL_CITIES_LABEL)}
+                      className="px-4 py-2 rounded-full border border-white/20 bg-white/5 text-xs font-bold text-white/80 hover:bg-white/10 hover:text-white transition"
+                    >
+                      🌐 Explore All Cities
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-10 text-center">
+                <p className="display text-2xl text-ink">
+                  {selectedCity === ALL_CITIES_LABEL ? "Nothing yet" : `Nothing within 100 km of ${selectedCity} yet`}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {selectedCity === ALL_CITIES_LABEL
+                    ? "Be the first — post an activity below."
+                    : `No activities found within 100 km of ${selectedCity}. Be the first to post, or switch cities.`}
+                </p>
+                {selectedCity !== ALL_CITIES_LABEL && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectCity(ALL_CITIES_LABEL)}
+                    className="mt-4 px-4 py-2 rounded-full border border-border bg-paper text-xs font-semibold text-primary hover:bg-surface transition shadow-sm"
+                  >
+                    🌐 View posts from All Cities
+                  </button>
+                )}
+              </div>
+            )
+          ) : themeMode === "genz" ? (
+            /* Gen Z Mode Post Cards: Modern Glassmorphic Tiles */
+            <ul className="mt-5 space-y-3.5">
+              {filtered.map((a) => (
+                <li key={a.id}>
+                  <button
+                    onClick={() => setSelected(a)}
+                    className="group w-full text-left p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[#CCFF00]/60 hover:bg-white/[0.07] backdrop-blur-xl shadow-lg hover:shadow-[0_8px_30px_rgba(204,255,0,0.16)] transition-all duration-200 active:scale-[0.99] flex flex-col gap-3 cursor-pointer"
+                  >
+                    {/* Top Tag Row */}
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xl">{a.emoji}</span>
+                        <span className="bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30 font-black text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                          {a.category}
+                        </span>
+                        {a.__match && (
+                          <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full">
+                            FOR YOU
+                          </span>
+                        )}
+                        {a.city && (
+                          <span className="text-[10px] font-bold text-white/60">
+                            📍 {a.city}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-bold text-white/50">
+                        {formatWhen(a.starts_at)}
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="text-lg font-black text-white group-hover:text-[#CCFF00] tracking-tight leading-snug transition">
+                      {a.title}
+                    </h3>
+
+                    {/* Meta Row: Host, Trust, Spots, Distance */}
+                    <div className="flex items-center justify-between w-full pt-1.5 border-t border-white/5 text-xs flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        {a.host_avatar_url ? (
+                          <img
+                            src={a.host_avatar_url}
+                            alt={a.host_name}
+                            className="h-5 w-5 rounded-full object-cover shrink-0 border border-white/20"
+                          />
+                        ) : (
+                          <span className="h-5 w-5 rounded-full bg-white/10 flex items-center justify-center font-bold text-[9px] text-white shrink-0">
+                            {a.host_name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
+                          </span>
+                        )}
+                        <span className="font-bold text-white/90">
+                          {a.is_mine ? "You" : a.host_name}
+                        </span>
+                        {a.host_trust !== null && (
+                          <span className="text-[10px] font-extrabold text-[#CCFF00] bg-[#CCFF00]/10 px-1.5 py-0.5 rounded-md border border-[#CCFF00]/20">
+                            ⚡ {a.host_trust} Trust
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/50 text-[11px] font-semibold">
+                          {a.spots_filled}/{a.spots_total} in
+                        </span>
+                        {a.__distKm != null && (
+                          <span className="text-[11px] font-black text-black bg-[#CCFF00] px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(204,255,0,0.3)]">
+                            📍 {a.__distKm < 1 ? `${Math.round(a.__distKm * 1000)}m` : `${a.__distKm.toFixed(1)}km`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
           ) : (
+            /* Editorial Zine Mode Post Cards */
             <ul className="mt-5 divide-y divide-border border-y border-border">
               {filtered.map((a, idx) => (
                 <li key={a.id}>
                   <button
                     onClick={() => setSelected(a)}
-                    className="group w-full text-left py-5 flex gap-4 items-start hover:bg-paper/60 transition -mx-2 px-2 rounded-xl"
+                    className="group w-full text-left py-5 flex gap-4 items-start hover:bg-paper/60 transition -mx-2 px-2 rounded-xl cursor-pointer"
                   >
                     <div className="shrink-0 flex flex-col items-center pt-1">
                       <span className="text-3xl">{a.emoji}</span>
@@ -703,16 +953,30 @@ function Dashboard() {
         )}
       </div>
 
+      {/* Floating CTA Button: Adapts to Gen Z vs Editorial */}
       <button
         onClick={() => setShowCreate(true)}
-        className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-ink text-background rounded-full pl-5 pr-6 py-3.5 shadow-xl shadow-ink/25 hover:bg-ink/90 active:scale-[0.98] transition font-semibold whitespace-nowrap"
+        className={
+          themeMode === "genz"
+            ? "fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 bg-[#CCFF00] text-black rounded-full px-6 py-3.5 shadow-[0_8px_30px_rgba(204,255,0,0.5)] hover:shadow-[0_10px_35px_rgba(204,255,0,0.7)] hover:scale-105 active:scale-95 transition-all font-black text-sm whitespace-nowrap cursor-pointer tracking-tight"
+            : "fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-ink text-background rounded-full pl-5 pr-6 py-3.5 shadow-xl shadow-ink/25 hover:bg-ink/90 active:scale-[0.98] transition font-semibold whitespace-nowrap cursor-pointer"
+        }
       >
-        <span className="h-6 w-6 rounded-full bg-brand-orange text-ink flex items-center justify-center text-lg leading-none">
-          +
-        </span>
-        <span>
-          Post an <em className="display italic font-normal">activity</em>
-        </span>
+        {themeMode === "genz" ? (
+          <>
+            <span className="text-lg leading-none font-black">⚡</span>
+            <span>Drop a Plan</span>
+          </>
+        ) : (
+          <>
+            <span className="h-6 w-6 rounded-full bg-brand-orange text-ink flex items-center justify-center text-lg leading-none">
+              +
+            </span>
+            <span>
+              Post an <em className="display italic font-normal">activity</em>
+            </span>
+          </>
+        )}
       </button>
 
       {showCreate && (
