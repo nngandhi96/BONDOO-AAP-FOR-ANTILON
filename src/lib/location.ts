@@ -16,6 +16,7 @@ export type LocationResult = {
 
 export const DEFAULT_FALLBACK_CITY = "Delhi";
 export const ALL_CITIES_LABEL = "All Cities";
+export const DEFAULT_RADIUS_KM = 100;
 
 export const POPULAR_CITIES = [
   ALL_CITIES_LABEL,
@@ -37,6 +38,57 @@ export const POPULAR_CITIES = [
   "Bhopal",
   "Ranchi",
 ] as const;
+
+/**
+ * Standard coordinates for major Indian cities (latitude, longitude)
+ */
+export const CITY_COORDINATES: Record<string, Coordinates> = {
+  Delhi: { latitude: 28.6139, longitude: 77.209 },
+  Patna: { latitude: 25.5941, longitude: 85.1376 },
+  Mumbai: { latitude: 19.076, longitude: 72.8777 },
+  Bengaluru: { latitude: 12.9716, longitude: 77.5946 },
+  Kolkata: { latitude: 22.5726, longitude: 88.3639 },
+  Hyderabad: { latitude: 17.385, longitude: 78.4867 },
+  Pune: { latitude: 18.5204, longitude: 73.8567 },
+  Chennai: { latitude: 13.0827, longitude: 80.2707 },
+  Jaipur: { latitude: 26.9124, longitude: 75.7873 },
+  Ahmedabad: { latitude: 23.0225, longitude: 72.5714 },
+  Lucknow: { latitude: 26.8467, longitude: 80.9462 },
+  Chandigarh: { latitude: 30.7333, longitude: 76.7794 },
+  Noida: { latitude: 28.5355, longitude: 77.391 },
+  Gurugram: { latitude: 28.4595, longitude: 77.0266 },
+  Indore: { latitude: 22.7196, longitude: 75.8577 },
+  Bhopal: { latitude: 23.2599, longitude: 77.4126 },
+  Ranchi: { latitude: 23.3441, longitude: 85.3096 },
+};
+
+/**
+ * Get coordinates for a given city name
+ */
+export function getCityCoordinates(cityName?: string | null): Coordinates | null {
+  if (!cityName) return null;
+  const norm = normalizeCityName(cityName);
+  return CITY_COORDINATES[norm] ?? null;
+}
+
+/**
+ * Haversine distance in kilometers between two GPS coordinate points
+ */
+export function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371; // Earth radius in km
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
 const STORAGE_KEY_SELECTED_CITY = "bondoo_selected_city";
 const STORAGE_KEY_CACHED_CITY = "bondoo_cached_city";
@@ -70,6 +122,36 @@ export function normalizeCityName(raw: string): string {
 }
 
 /**
+ * Get saved coordinates preference from localStorage
+ */
+export function getSavedCoordinates(): Coordinates | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const latStr = localStorage.getItem(STORAGE_KEY_CACHED_LAT);
+    const lngStr = localStorage.getItem(STORAGE_KEY_CACHED_LNG);
+    if (latStr && lngStr) {
+      const lat = parseFloat(latStr);
+      const lng = parseFloat(lngStr);
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * Save coordinates preference to localStorage
+ */
+export function saveCoordinates(lat: number, lng: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY_CACHED_LAT, String(lat));
+    localStorage.setItem(STORAGE_KEY_CACHED_LNG, String(lng));
+  } catch {}
+}
+
+/**
  * Get saved city preference from localStorage
  */
 export function getSavedCity(): string | null {
@@ -88,6 +170,11 @@ export function saveSelectedCity(city: string): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY_SELECTED_CITY, city);
+    // If coordinates for this city exist in lookup, cache them too
+    const coords = getCityCoordinates(city);
+    if (coords) {
+      saveCoordinates(coords.latitude, coords.longitude);
+    }
   } catch {}
 }
 
@@ -200,13 +287,15 @@ export async function resolveUserCity(
   if (!forceDetectGps && typeof window !== "undefined") {
     const manual = localStorage.getItem(STORAGE_KEY_SELECTED_CITY);
     if (manual && manual.trim()) {
-      const latStr = localStorage.getItem(STORAGE_KEY_CACHED_LAT);
-      const lngStr = localStorage.getItem(STORAGE_KEY_CACHED_LNG);
+      const savedCoords = getSavedCoordinates();
+      const cityCoords = getCityCoordinates(manual.trim());
+      const finalLat = savedCoords?.latitude ?? cityCoords?.latitude ?? null;
+      const finalLng = savedCoords?.longitude ?? cityCoords?.longitude ?? null;
       return {
         city: manual.trim(),
         cityNormalized: manual.trim().toLowerCase(),
-        latitude: latStr ? parseFloat(latStr) : null,
-        longitude: lngStr ? parseFloat(lngStr) : null,
+        latitude: finalLat,
+        longitude: finalLng,
         source: "manual",
       };
     }
@@ -215,6 +304,7 @@ export async function resolveUserCity(
   // 2. Try GPS coordinates detection
   const coords = await getDeviceCoordinates();
   if (coords) {
+    saveCoordinates(coords.latitude, coords.longitude);
     const geocoded = await reverseGeocodeCity(coords.latitude, coords.longitude);
     if (geocoded) {
       return {
@@ -231,13 +321,13 @@ export async function resolveUserCity(
   if (typeof window !== "undefined") {
     const cached = localStorage.getItem(STORAGE_KEY_CACHED_CITY);
     if (cached && cached.trim()) {
-      const latStr = localStorage.getItem(STORAGE_KEY_CACHED_LAT);
-      const lngStr = localStorage.getItem(STORAGE_KEY_CACHED_LNG);
+      const savedCoords = getSavedCoordinates();
+      const cityCoords = getCityCoordinates(cached.trim());
       return {
         city: cached.trim(),
         cityNormalized: cached.trim().toLowerCase(),
-        latitude: latStr ? parseFloat(latStr) : null,
-        longitude: lngStr ? parseFloat(lngStr) : null,
+        latitude: savedCoords?.latitude ?? cityCoords?.latitude ?? null,
+        longitude: savedCoords?.longitude ?? cityCoords?.longitude ?? null,
         source: "cache",
       };
     }
@@ -247,21 +337,24 @@ export async function resolveUserCity(
   const profCity = profileFallback?.home_city || profileFallback?.neighbourhood;
   if (profCity && profCity.trim()) {
     const standardized = normalizeCityName(profCity.trim());
+    const cityCoords = getCityCoordinates(standardized);
     return {
       city: standardized,
       cityNormalized: standardized.toLowerCase(),
-      latitude: profileFallback?.home_lat ?? null,
-      longitude: profileFallback?.home_lng ?? null,
+      latitude: profileFallback?.home_lat ?? cityCoords?.latitude ?? null,
+      longitude: profileFallback?.home_lng ?? cityCoords?.longitude ?? null,
       source: "profile",
     };
   }
 
-  // 5. Default fallback
+  // 5. Default fallback (Delhi)
+  const defaultCoords = CITY_COORDINATES[DEFAULT_FALLBACK_CITY];
   return {
     city: DEFAULT_FALLBACK_CITY,
     cityNormalized: DEFAULT_FALLBACK_CITY.toLowerCase(),
-    latitude: 28.6139,
-    longitude: 77.209,
+    latitude: defaultCoords.latitude,
+    longitude: defaultCoords.longitude,
     source: "fallback",
   };
 }
+

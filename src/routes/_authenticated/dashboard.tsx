@@ -18,9 +18,12 @@ import { CitySelectorModal } from "@/components/city-selector-modal";
 import {
   resolveUserCity,
   getSavedCity,
+  getSavedCoordinates,
+  getCityCoordinates,
   saveSelectedCity,
   ALL_CITIES_LABEL,
   DEFAULT_FALLBACK_CITY,
+  DEFAULT_RADIUS_KM,
   type Coordinates,
 } from "@/lib/location";
 
@@ -155,13 +158,16 @@ function Dashboard() {
     }
   }, [profile, navigate]);
 
-  // Reactive City-based feed query
+  // Reactive 100km radius location-based & city-based feed query
   const { data: activities = [], isLoading } = useQuery({
-    queryKey: ["activities", { city: selectedCity }],
+    queryKey: ["activities", { city: selectedCity, lat: myLoc?.lat, lng: myLoc?.lng }],
     queryFn: () =>
       fetchActivities({
         data: {
           city: selectedCity === ALL_CITIES_LABEL ? undefined : selectedCity,
+          latitude: myLoc?.lat ?? undefined,
+          longitude: myLoc?.lng ?? undefined,
+          radiusKm: DEFAULT_RADIUS_KM,
         },
       }),
   });
@@ -171,29 +177,45 @@ function Dashboard() {
     queryFn: () => fetchPending(),
   });
 
-  // Resolve user city on mount or profile load
+  // Resolve user city and coordinates on mount or profile load
   useEffect(() => {
     let isMounted = true;
     async function initLocation() {
+      // 1. Immediately hydrate from cache / saved preferences for instant render
       const saved = getSavedCity();
-      if (!saved) {
-        setIsDetectingCity(true);
-        try {
-          const res = await resolveUserCity(profile);
-          if (isMounted) {
-            setSelectedCity(res.city);
-            setDetectedCity(res.city);
-            if (res.latitude != null && res.longitude != null) {
-              setCityCoords({ latitude: res.latitude, longitude: res.longitude });
-              setMyLoc({ lat: res.latitude, lng: res.longitude });
-            }
-          }
-        } finally {
-          if (isMounted) setIsDetectingCity(false);
-        }
-      } else {
+      const savedCoords = getSavedCoordinates();
+      if (savedCoords) {
+        setCityCoords(savedCoords);
+        setMyLoc({ lat: savedCoords.latitude, lng: savedCoords.longitude });
+      }
+      if (saved) {
         setSelectedCity(saved);
         setDetectedCity(saved);
+        if (!savedCoords) {
+          const fallbackCoords = getCityCoordinates(saved);
+          if (fallbackCoords) {
+            setCityCoords(fallbackCoords);
+            setMyLoc({ lat: fallbackCoords.latitude, lng: fallbackCoords.longitude });
+          }
+        }
+      }
+
+      // 2. Resolve fresh GPS coordinates or profile location
+      setIsDetectingCity(true);
+      try {
+        const res = await resolveUserCity(profile);
+        if (isMounted) {
+          if (!saved) {
+            setSelectedCity(res.city);
+          }
+          setDetectedCity(res.city);
+          if (res.latitude != null && res.longitude != null) {
+            setCityCoords({ latitude: res.latitude, longitude: res.longitude });
+            setMyLoc({ lat: res.latitude, lng: res.longitude });
+          }
+        }
+      } finally {
+        if (isMounted) setIsDetectingCity(false);
       }
     }
     initLocation();
@@ -228,6 +250,11 @@ function Dashboard() {
   function handleSelectCity(city: string) {
     setSelectedCity(city);
     saveSelectedCity(city);
+    const coords = getCityCoordinates(city);
+    if (coords) {
+      setCityCoords(coords);
+      setMyLoc({ lat: coords.latitude, lng: coords.longitude });
+    }
     qc.invalidateQueries({ queryKey: ["activities"] });
   }
 
@@ -250,30 +277,56 @@ function Dashboard() {
     [profile],
   );
 
-  const filtered = useMemo(
-    () => {
-      const base = cat === "All" ? activities : activities.filter((a) => a.category === cat);
-      const withDist = base.map((a) => {
+  // 100km radius & proximity filtering
+  const filtered = useMemo(() => {
+    const base = cat === "All" ? activities : activities.filter((a) => a.category === cat);
+    const withDist = base
+      .map((a) => {
         let distKm: number | null = null;
-        if (myLoc && a.location_lat != null && a.location_lng != null) {
-          distKm = haversine(myLoc.lat, myLoc.lng, a.location_lat, a.location_lng);
+        const actLat = a.latitude ?? a.location_lat;
+        const actLng = a.longitude ?? a.location_lng;
+        if (myLoc && actLat != null && actLng != null) {
+          distKm = haversine(myLoc.lat, myLoc.lng, actLat, actLng);
         }
         const isMatch = myInterests.has(a.category.toLowerCase());
         return { ...a, __distKm: distKm, __match: isMatch };
+      })
+      .filter((a) => {
+        // If "All Cities" is explicitly selected, show all posts across the country
+        if (selectedCity === ALL_CITIES_LABEL) return true;
+
+        // If distance from user's location is known, strictly limit to 100km radius
+        if (a.__distKm != null) {
+          return a.__distKm <= DEFAULT_RADIUS_KM;
+        }
+
+        // If activity doesn't have exact GPS coordinates, match against user's selected city
+        if (a.city && selectedCity) {
+          return (
+            a.city.toLowerCase().includes(selectedCity.toLowerCase()) ||
+            selectedCity.toLowerCase().includes(a.city.toLowerCase())
+          );
+        }
+
+        // Keep post if no city was attached and user has no specific city filter
+        return !selectedCity || selectedCity === ALL_CITIES_LABEL;
       });
-      if (nearMe && myLoc) {
-        withDist.sort((a, b) => {
-          const da = a.__distKm ?? Number.POSITIVE_INFINITY;
-          const db = b.__distKm ?? Number.POSITIVE_INFINITY;
-          return da - db;
-        });
-      } else if (myInterests.size > 0) {
-        withDist.sort((a, b) => Number(b.__match) - Number(a.__match));
+
+    // Sort by proximity (nearest to user first within 100km)
+    withDist.sort((a, b) => {
+      if (a.__distKm != null && b.__distKm != null) {
+        return a.__distKm - b.__distKm;
       }
-      return withDist;
-    },
-    [activities, cat, myLoc, nearMe, myInterests],
-  );
+      if (a.__distKm != null) return -1;
+      if (b.__distKm != null) return 1;
+      if (myInterests.size > 0 && a.__match !== b.__match) {
+        return Number(b.__match) - Number(a.__match);
+      }
+      return 0;
+    });
+
+    return withDist;
+  }, [activities, cat, myLoc, selectedCity, myInterests]);
 
   // Sync draft city when opening create dialog
   useEffect(() => {
@@ -403,15 +456,20 @@ function Dashboard() {
             <h1 className="display text-[2.6rem] leading-[0.95] text-ink mt-1 truncate">
               {profile?.neighbourhood || "Nearby"}<span className="text-brand-orange">.</span>
             </h1>
-            {/* Header City Selector Chip */}
+            {/* Header City Selector Chip with 100km Radius indicator */}
             <button
               type="button"
               onClick={() => setShowCityModal(true)}
               className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-paper border border-border hover:border-brand-orange text-ink text-xs font-semibold shadow-sm transition active:scale-[0.98] cursor-pointer"
-              title="Filter by City"
+              title="Filter by City · 100 km Radius"
             >
               <span className="text-brand-orange text-xs">{selectedCity === ALL_CITIES_LABEL ? "🌐" : "📍"}</span>
               <span className="font-semibold">{selectedCity}</span>
+              {selectedCity !== ALL_CITIES_LABEL && (
+                <span className="text-[10px] text-brand-orange font-medium px-1.5 py-0.5 rounded-full bg-brand-orange/10">
+                  within 100km
+                </span>
+              )}
               <span className="text-[10px] text-muted-foreground">▾</span>
             </button>
           </div>
@@ -514,12 +572,12 @@ function Dashboard() {
           ) : filtered.length === 0 ? (
             <div className="mt-10 text-center">
               <p className="display text-2xl text-ink">
-                {selectedCity === ALL_CITIES_LABEL ? "Nothing yet" : `Nothing in ${selectedCity} yet`}
+                {selectedCity === ALL_CITIES_LABEL ? "Nothing yet" : `Nothing within 100 km of ${selectedCity} yet`}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
                 {selectedCity === ALL_CITIES_LABEL
                   ? "Be the first — post an activity below."
-                  : `Be the first — post an activity in ${selectedCity} below, or switch cities.`}
+                  : `No activities found within 100 km of ${selectedCity}. Be the first to post, or switch cities.`}
               </p>
               {selectedCity !== ALL_CITIES_LABEL && (
                 <button
@@ -592,7 +650,8 @@ function Dashboard() {
                         {a.__distKm != null && (
                           <>
                             <span className="text-muted-foreground">·</span>
-                            <span className="text-muted-foreground">
+                            <span className="text-brand-orange font-medium">
+                              📍{" "}
                               {a.__distKm < 1
                                 ? `${Math.round(a.__distKm * 1000)} m`
                                 : `${a.__distKm.toFixed(1)} km`}

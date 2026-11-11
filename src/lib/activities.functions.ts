@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { haversineDistance, DEFAULT_RADIUS_KM } from "@/lib/location";
 
 const CATEGORIES = [
   "Coffee & Chat",
@@ -56,6 +57,9 @@ export const listActivities = createServerFn({ method: "GET" })
     z
       .object({
         city: z.string().trim().optional().nullable(),
+        latitude: z.number().optional().nullable(),
+        longitude: z.number().optional().nullable(),
+        radiusKm: z.number().optional().nullable(),
       })
       .optional()
       .parse(input),
@@ -70,15 +74,48 @@ export const listActivities = createServerFn({ method: "GET" })
       .eq("status", "active");
 
     const targetCity = data?.city?.trim();
-    if (targetCity && targetCity.toLowerCase() !== "all cities" && targetCity.toLowerCase() !== "all") {
+    const isAllCities =
+      !targetCity ||
+      targetCity.toLowerCase() === "all cities" ||
+      targetCity.toLowerCase() === "all";
+
+    // If city is specified and user explicitly wants to filter by city name
+    if (!isAllCities && (!data?.latitude || !data?.longitude)) {
       query = query.ilike("city", `%${targetCity}%`);
     }
 
     query = query.order("created_at", { ascending: false });
 
-    const { data: rows, error } = await query;
+    const { data: rawRows, error } = await query;
     if (error) throw new Error(error.message);
-    if (!rows || rows.length === 0) return [];
+    if (!rawRows || rawRows.length === 0) return [];
+
+    // Filter by radius (default 100km) when user coordinates are provided
+    let rows = rawRows;
+    const userLat = data?.latitude;
+    const userLng = data?.longitude;
+    const maxRadius = data?.radiusKm ?? DEFAULT_RADIUS_KM;
+
+    if (userLat != null && userLng != null && !isAllCities) {
+      rows = rawRows.filter((r) => {
+        const rowLat = r.latitude ?? r.location_lat;
+        const rowLng = r.longitude ?? r.location_lng;
+        if (rowLat != null && rowLng != null) {
+          const dist = haversineDistance(userLat, userLng, rowLat, rowLng);
+          return dist <= maxRadius;
+        }
+        // Fallback for posts without coordinates: check city match
+        if (r.city && targetCity) {
+          return (
+            r.city.toLowerCase().includes(targetCity.toLowerCase()) ||
+            targetCity.toLowerCase().includes(r.city.toLowerCase())
+          );
+        }
+        return false;
+      });
+    }
+
+    if (rows.length === 0) return [];
 
     const hostIds = Array.from(new Set(rows.map((r) => r.host_id)));
     const { data: profiles } = await supabase

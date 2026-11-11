@@ -46,11 +46,14 @@ export function CitySelectorModal({
         <div className="flex items-center justify-between pb-3 border-b border-border">
           <div>
             <p className="text-[10px] uppercase tracking-[0.22em] text-brand-orange font-semibold">
-              Location Filter
+              Location Filter · 100 km Radius
             </p>
             <h3 className="display text-2xl text-ink leading-tight mt-0.5">
               Select your <em className="text-primary not-italic">city</em>
             </h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Showing posts within 100 km radius of your location
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -152,3 +155,4 @@ export function CitySelectorModal({
     </div>
   );
 }
+
