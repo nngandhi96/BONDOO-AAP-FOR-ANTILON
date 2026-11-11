@@ -17,15 +17,18 @@ export type Database = {
       activities: {
         Row: {
           category: Database["public"]["Enums"]["activity_category"]
+          city: string | null
           created_at: string
           description: string | null
           distance_hint: string | null
           emoji: string | null
           host_id: string
           id: string
+          latitude: number | null
           location_lat: number | null
           location_lng: number | null
           location_name: string | null
+          longitude: number | null
           spots_filled: number
           spots_total: number
           starts_at: string
@@ -35,15 +38,18 @@ export type Database = {
         }
         Insert: {
           category: Database["public"]["Enums"]["activity_category"]
+          city?: string | null
           created_at?: string
           description?: string | null
           distance_hint?: string | null
           emoji?: string | null
           host_id: string
           id?: string
+          latitude?: number | null
           location_lat?: number | null
           location_lng?: number | null
           location_name?: string | null
+          longitude?: number | null
           spots_filled?: number
           spots_total?: number
           starts_at: string
@@ -53,15 +59,18 @@ export type Database = {
         }
         Update: {
           category?: Database["public"]["Enums"]["activity_category"]
+          city?: string | null
           created_at?: string
           description?: string | null
           distance_hint?: string | null
           emoji?: string | null
           host_id?: string
           id?: string
+          latitude?: number | null
           location_lat?: number | null
           location_lng?: number | null
           location_name?: string | null
+          longitude?: number | null
           spots_filled?: number
           spots_total?: number
           starts_at?: string
@@ -570,6 +579,45 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      posts: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          content: string | null
+          category: string | null
+          city: string | null
+          latitude: number | null
+          longitude: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          content?: string | null
+          category?: string | null
+          city?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          content?: string | null
+          category?: string | null
+          city?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

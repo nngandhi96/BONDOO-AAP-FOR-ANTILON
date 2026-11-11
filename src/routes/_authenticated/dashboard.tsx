@@ -14,6 +14,15 @@ import {
 import { getOrCreateConversation } from "@/lib/chat.functions";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { listMeetupsAwaitingMyReview } from "@/lib/reviews.functions";
+import { CitySelectorModal } from "@/components/city-selector-modal";
+import {
+  resolveUserCity,
+  getSavedCity,
+  saveSelectedCity,
+  ALL_CITIES_LABEL,
+  DEFAULT_FALLBACK_CITY,
+  type Coordinates,
+} from "@/lib/location";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -119,6 +128,15 @@ function Dashboard() {
   const [locBusy, setLocBusy] = useState(false);
   const [nearMe, setNearMe] = useState(false);
 
+  // Location & City filtering state
+  const [selectedCity, setSelectedCity] = useState<string>(() => getSavedCity() || DEFAULT_FALLBACK_CITY);
+  const [detectedCity, setDetectedCity] = useState<string>(DEFAULT_FALLBACK_CITY);
+  const [cityCoords, setCityCoords] = useState<Coordinates | null>(null);
+  const [isDetectingCity, setIsDetectingCity] = useState(false);
+  const [showCityModal, setShowCityModal] = useState(false);
+  const [draftCity, setDraftCity] = useState("");
+  const [editCity, setEditCity] = useState("");
+
   const fetchProfile = useServerFn(getMyProfile);
   const fetchActivities = useServerFn(listActivities);
   const postActivity = useServerFn(createActivity);
@@ -137,9 +155,15 @@ function Dashboard() {
     }
   }, [profile, navigate]);
 
+  // Reactive City-based feed query
   const { data: activities = [], isLoading } = useQuery({
-    queryKey: ["activities"],
-    queryFn: () => fetchActivities(),
+    queryKey: ["activities", { city: selectedCity }],
+    queryFn: () =>
+      fetchActivities({
+        data: {
+          city: selectedCity === ALL_CITIES_LABEL ? undefined : selectedCity,
+        },
+      }),
   });
 
   const { data: pendingReviews = [] } = useQuery({
@@ -147,11 +171,65 @@ function Dashboard() {
     queryFn: () => fetchPending(),
   });
 
+  // Resolve user city on mount or profile load
+  useEffect(() => {
+    let isMounted = true;
+    async function initLocation() {
+      const saved = getSavedCity();
+      if (!saved) {
+        setIsDetectingCity(true);
+        try {
+          const res = await resolveUserCity(profile);
+          if (isMounted) {
+            setSelectedCity(res.city);
+            setDetectedCity(res.city);
+            if (res.latitude != null && res.longitude != null) {
+              setCityCoords({ latitude: res.latitude, longitude: res.longitude });
+              setMyLoc({ lat: res.latitude, lng: res.longitude });
+            }
+          }
+        } finally {
+          if (isMounted) setIsDetectingCity(false);
+        }
+      } else {
+        setSelectedCity(saved);
+        setDetectedCity(saved);
+      }
+    }
+    initLocation();
+    return () => {
+      isMounted = false;
+    };
+  }, [profile]);
+
   useEffect(() => {
     if (profile?.home_lat != null && profile?.home_lng != null) {
       setMyLoc({ lat: profile.home_lat, lng: profile.home_lng });
     }
   }, [profile]);
+
+  async function handleDetectLocation() {
+    setIsDetectingCity(true);
+    try {
+      const res = await resolveUserCity(profile, true);
+      setSelectedCity(res.city);
+      setDetectedCity(res.city);
+      saveSelectedCity(res.city);
+      if (res.latitude != null && res.longitude != null) {
+        setCityCoords({ latitude: res.latitude, longitude: res.longitude });
+        setMyLoc({ lat: res.latitude, lng: res.longitude });
+      }
+      qc.invalidateQueries({ queryKey: ["activities"] });
+    } finally {
+      setIsDetectingCity(false);
+    }
+  }
+
+  function handleSelectCity(city: string) {
+    setSelectedCity(city);
+    saveSelectedCity(city);
+    qc.invalidateQueries({ queryKey: ["activities"] });
+  }
 
   function requestLocation() {
     if (!("geolocation" in navigator) || locBusy) return;
@@ -197,12 +275,22 @@ function Dashboard() {
     [activities, cat, myLoc, nearMe, myInterests],
   );
 
+  // Sync draft city when opening create dialog
+  useEffect(() => {
+    if (showCreate) {
+      setDraftCity(selectedCity === ALL_CITIES_LABEL ? detectedCity : selectedCity);
+    }
+  }, [showCreate, selectedCity, detectedCity]);
+
   const createMut = useMutation({
     mutationFn: (input: {
       title: string;
       category: Category;
       starts_at: string;
       location_name?: string;
+      city?: string;
+      latitude?: number;
+      longitude?: number;
     }) => postActivity({ data: input }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activities"] });
@@ -210,6 +298,7 @@ function Dashboard() {
       setDraftWhen("");
       setDraftLocation("");
       setDraftCat("Coffee & Chat");
+      setDraftCity("");
       setShowCreate(false);
       setCat("All");
     },
@@ -217,11 +306,15 @@ function Dashboard() {
 
   function handleCreate() {
     if (!draftTitle.trim() || !draftWhen) return;
+    const finalCity = (draftCity.trim() || (selectedCity !== ALL_CITIES_LABEL ? selectedCity : detectedCity) || DEFAULT_FALLBACK_CITY).trim();
     createMut.mutate({
       title: draftTitle.trim(),
       category: draftCat,
       starts_at: new Date(draftWhen).toISOString(),
       location_name: draftLocation.trim() || undefined,
+      city: finalCity,
+      latitude: myLoc?.lat ?? cityCoords?.latitude ?? undefined,
+      longitude: myLoc?.lng ?? cityCoords?.longitude ?? undefined,
     });
   }
 
@@ -232,6 +325,9 @@ function Dashboard() {
       category: Category;
       starts_at: string;
       location_name?: string;
+      city?: string;
+      latitude?: number;
+      longitude?: number;
     }) => editActivity({ data: input }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activities"] });
@@ -256,6 +352,7 @@ function Dashboard() {
     setEditCat(act.category);
     setEditWhen(toLocalDatetimeString(act.starts_at));
     setEditLocation(act.location_name || "");
+    setEditCity(act.city || (selectedCity !== ALL_CITIES_LABEL ? selectedCity : detectedCity) || "");
     setShowEdit(true);
   }
 
@@ -267,6 +364,7 @@ function Dashboard() {
       category: editCat,
       starts_at: new Date(editWhen).toISOString(),
       location_name: editLocation.trim() || undefined,
+      city: editCity.trim() || undefined,
     });
   }
 
@@ -305,6 +403,17 @@ function Dashboard() {
             <h1 className="display text-[2.6rem] leading-[0.95] text-ink mt-1 truncate">
               {profile?.neighbourhood || "Nearby"}<span className="text-brand-orange">.</span>
             </h1>
+            {/* Header City Selector Chip */}
+            <button
+              type="button"
+              onClick={() => setShowCityModal(true)}
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-paper border border-border hover:border-brand-orange text-ink text-xs font-semibold shadow-sm transition active:scale-[0.98] cursor-pointer"
+              title="Filter by City"
+            >
+              <span className="text-brand-orange text-xs">{selectedCity === ALL_CITIES_LABEL ? "🌐" : "📍"}</span>
+              <span className="font-semibold">{selectedCity}</span>
+              <span className="text-[10px] text-muted-foreground">▾</span>
+            </button>
           </div>
           <div className="shrink-0 flex items-center gap-2">
             <NotificationsBell />
@@ -404,10 +513,23 @@ function Dashboard() {
             <p className="mt-10 text-center text-sm text-muted-foreground">Loading…</p>
           ) : filtered.length === 0 ? (
             <div className="mt-10 text-center">
-              <p className="display text-2xl text-ink">Nothing yet</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Be the first — post an activity below.
+              <p className="display text-2xl text-ink">
+                {selectedCity === ALL_CITIES_LABEL ? "Nothing yet" : `Nothing in ${selectedCity} yet`}
               </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {selectedCity === ALL_CITIES_LABEL
+                  ? "Be the first — post an activity below."
+                  : `Be the first — post an activity in ${selectedCity} below, or switch cities.`}
+              </p>
+              {selectedCity !== ALL_CITIES_LABEL && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectCity(ALL_CITIES_LABEL)}
+                  className="mt-4 px-4 py-2 rounded-full border border-border bg-paper text-xs font-semibold text-primary hover:bg-surface transition shadow-sm"
+                >
+                  🌐 View posts from All Cities
+                </button>
+              )}
             </div>
           ) : (
             <ul className="mt-5 divide-y divide-border border-y border-border">
@@ -429,6 +551,11 @@ function Dashboard() {
                         {a.__match && (
                           <span className="ml-2 inline-block bg-primary/15 text-primary px-1.5 py-0.5 rounded-full normal-case tracking-normal text-[9px]">
                             for you
+                          </span>
+                        )}
+                        {a.city && (
+                          <span className="ml-2 inline-block bg-brand-orange/15 text-brand-orange px-1.5 py-0.5 rounded-full normal-case tracking-normal text-[9px] font-semibold">
+                            📍 {a.city}
                           </span>
                         )}
                       </p>
@@ -608,6 +735,35 @@ function Dashboard() {
                   className="mt-2 w-full rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
                 />
               </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+                    City
+                  </label>
+                  <span className="text-[10px] text-muted-foreground">
+                    Auto-attached to feed
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    value={draftCity}
+                    onChange={(e) => setDraftCity(e.target.value)}
+                    placeholder="e.g. Delhi, Patna, Bengaluru…"
+                    className="flex-1 rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
+                  />
+                  {detectedCity && (
+                    <button
+                      type="button"
+                      onClick={() => setDraftCity(detectedCity)}
+                      className="px-3 py-3 rounded-2xl border border-border bg-paper text-xs font-semibold text-primary hover:bg-surface transition shrink-0"
+                      title="Reset to detected city"
+                    >
+                      📍 {detectedCity}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {createMut.isError && (
@@ -717,6 +873,18 @@ function Dashboard() {
                   className="mt-2 w-full rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
                 />
               </div>
+
+              <div>
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+                  City
+                </label>
+                <input
+                  value={editCity}
+                  onChange={(e) => setEditCity(e.target.value)}
+                  placeholder="e.g. Delhi, Patna…"
+                  className="mt-2 w-full rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
+                />
+              </div>
             </div>
 
             {updateMut.isError && (
@@ -768,7 +936,12 @@ function Dashboard() {
                 <h2 className="display text-2xl text-ink leading-tight mt-1">
                   {selected.title}
                 </h2>
-                {selected.location_name && (
+                {selected.city && (
+                  <p className="text-xs text-brand-orange font-semibold mt-1">
+                    📍 {selected.city}{selected.location_name ? ` · ${selected.location_name}` : ""}
+                  </p>
+                )}
+                {!selected.city && selected.location_name && (
                   <p className="text-sm text-muted-foreground mt-1">📍 {selected.location_name}</p>
                 )}
               </div>
@@ -885,6 +1058,15 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      <CitySelectorModal
+        isOpen={showCityModal}
+        onClose={() => setShowCityModal(false)}
+        selectedCity={selectedCity}
+        onSelectCity={handleSelectCity}
+        onDetectLocation={handleDetectLocation}
+        isDetecting={isDetectingCity}
+      />
     </main>
   );
 }
