@@ -462,20 +462,27 @@ function Dashboard() {
 
   return (
     <main className="min-h-screen bg-background pb-28 relative transition-colors duration-300">
-      <header className="max-w-md mx-auto px-6 pt-7 transition-colors duration-300">
-        <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.24em] text-muted-foreground font-semibold">
-          {themeMode === "genz" ? (
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.06] border border-white/10 backdrop-blur-md">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#CCFF00] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#CCFF00]"></span>
-              </span>
-              <span className="text-[11px] font-black uppercase tracking-wider text-[#CCFF00]">
-                ⚡ LIVE · {selectedCity}
-              </span>
-            </div>
-          ) : (
-            <span>{new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} · Vol. 01</span>
+      <header
+        className={`max-w-md mx-auto px-6 transition-colors duration-300 ${
+          themeMode === "genz" ? "pt-5 pb-1" : "pt-7"
+        }`}
+      >
+        <div
+          className={`flex items-center text-[10px] uppercase font-semibold ${
+            themeMode === "genz"
+              ? "justify-end"
+              : "justify-between tracking-[0.24em] text-muted-foreground"
+          }`}
+        >
+          {themeMode !== "genz" && (
+            <span>
+              {new Date().toLocaleDateString([], {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })}{" "}
+              · Vol. 01
+            </span>
           )}
 
           {/* Theme Mode Toggle Button */}
@@ -484,42 +491,46 @@ function Dashboard() {
             onClick={handleToggleTheme}
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm transition active:scale-95 cursor-pointer ${
               themeMode === "genz"
-                ? "bg-[#CCFF00] text-black border border-[#CCFF00] font-black shadow-[0_0_16px_rgba(204,255,0,0.45)] hover:scale-105"
+                ? "bg-[#CCFF00] text-black border border-[#CCFF00] font-bold shadow-[0_0_14px_rgba(204,255,0,0.35)] hover:scale-105"
                 : "bg-paper border border-border hover:border-brand-orange text-ink"
             }`}
-            title={themeMode === "genz" ? "Switch to Editorial Zine Mode" : "Switch to Gen Z Mode"}
+            title={
+              themeMode === "genz"
+                ? "Switch to Editorial Zine Mode"
+                : "Switch to Gen Z Mode"
+            }
           >
             <span className="text-xs">{themeMode === "genz" ? "⚡" : "✨"}</span>
             <span>{themeMode === "genz" ? "Zine Mode 📰" : "Gen Z Mode"}</span>
           </button>
         </div>
 
-        <div className="mt-4 flex items-end justify-between border-b border-border/80 pb-4">
+        <div
+          className={`flex items-end justify-between ${
+            themeMode === "genz"
+              ? "mt-2.5 border-b border-white/10 pb-3"
+              : "mt-4 border-b border-border/80 pb-4"
+          }`}
+        >
           <div className="min-w-0">
             {themeMode === "genz" ? (
               <>
-                <p className="text-[11px] font-black uppercase tracking-widest text-[#CCFF00]">
-                  What's the Move
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  WHAT'S THE MOVE
                 </p>
-                <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mt-0.5 truncate">
-                  {profile?.neighbourhood ? profile.neighbourhood.toUpperCase() : "NEARBY"}
-                  <span className="text-[#CCFF00]"> ⚡</span>
-                </h1>
-                {/* Header City Selector Badge */}
                 <button
                   type="button"
                   onClick={() => setShowCityModal(true)}
-                  className="mt-2.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.08] border border-white/20 hover:border-[#CCFF00] text-white text-xs font-bold shadow-lg transition active:scale-95 cursor-pointer backdrop-blur-md"
-                  title="Filter by City · 100 km Radius"
+                  className="group mt-0.5 inline-flex items-center gap-2 text-left cursor-pointer active:scale-[0.98] transition-transform max-w-full"
+                  title="Switch Location"
                 >
-                  <span className="text-sm">{selectedCity === ALL_CITIES_LABEL ? "🌐" : "📍"}</span>
-                  <span className="font-extrabold">{selectedCity}</span>
-                  {selectedCity !== ALL_CITIES_LABEL && (
-                    <span className="text-[10px] text-black bg-[#CCFF00] font-black px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(204,255,0,0.3)]">
-                      100 KM
-                    </span>
-                  )}
-                  <span className="text-xs text-white/50">▾</span>
+                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white group-hover:text-[#CCFF00] transition-colors truncate">
+                    {selectedCity.toUpperCase()}
+                  </h1>
+                  <span className="text-2xl text-[#CCFF00] shrink-0">⚡</span>
+                  <span className="text-sm text-white/50 group-hover:text-white transition-colors shrink-0">
+                    ▾
+                  </span>
                 </button>
               </>
             ) : (
@@ -528,7 +539,8 @@ function Dashboard() {
                   You are in
                 </p>
                 <h1 className="display text-[2.6rem] leading-[0.95] text-ink mt-1 truncate">
-                  {profile?.neighbourhood || "Nearby"}<span className="text-brand-orange">.</span>
+                  {profile?.neighbourhood || "Nearby"}
+                  <span className="text-brand-orange">.</span>
                 </h1>
                 {/* Header City Selector Chip with 100km Radius indicator */}
                 <button
@@ -537,7 +549,9 @@ function Dashboard() {
                   className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-paper border border-border hover:border-brand-orange text-ink text-xs font-semibold shadow-sm transition active:scale-[0.98] cursor-pointer"
                   title="Filter by City · 100 km Radius"
                 >
-                  <span className="text-brand-orange text-xs">{selectedCity === ALL_CITIES_LABEL ? "🌐" : "📍"}</span>
+                  <span className="text-brand-orange text-xs">
+                    {selectedCity === ALL_CITIES_LABEL ? "🌐" : "📍"}
+                  </span>
                   <span className="font-semibold">{selectedCity}</span>
                   {selectedCity !== ALL_CITIES_LABEL && (
                     <span className="text-[10px] text-brand-orange font-medium px-1.5 py-0.5 rounded-full bg-brand-orange/10">
@@ -566,7 +580,11 @@ function Dashboard() {
         </div>
       </header>
 
-      <div className="max-w-md mx-auto px-6 pt-5">
+      <div
+        className={`max-w-md mx-auto px-6 ${
+          themeMode === "genz" ? "pt-3.5" : "pt-5"
+        }`}
+      >
         {pendingReviews.length > 0 && (
           <button
             onClick={() =>
@@ -575,7 +593,7 @@ function Dashboard() {
                 params: { meetupId: pendingReviews[0].meetup_id },
               })
             }
-            className={`w-full mb-4 flex items-center gap-3 rounded-2xl p-4 text-left transition ${
+            className={`w-full mb-3 flex items-center gap-3 rounded-2xl p-3.5 text-left transition ${
               themeMode === "genz"
                 ? "bg-white/[0.05] border border-[#CCFF00]/40 backdrop-blur-md"
                 : "bg-brand-orange/12 border border-brand-orange/30"
@@ -598,12 +616,12 @@ function Dashboard() {
           </button>
         )}
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div
-            className={`inline-flex rounded-full p-1 border ${
+            className={`inline-flex rounded-full p-0.5 border ${
               themeMode === "genz"
                 ? "bg-white/[0.06] border-white/10 backdrop-blur-md"
-                : "bg-surface border-border"
+                : "bg-surface border-border p-1"
             }`}
           >
             {(["list", "map"] as const).map((v) => {
@@ -612,15 +630,19 @@ function Dashboard() {
                 <button
                   key={v}
                   onClick={() => setView(v)}
-                  className={`px-5 py-1.5 text-sm rounded-full transition ${
+                  className={
                     themeMode === "genz"
-                      ? active
-                        ? "bg-[#CCFF00] text-black font-black shadow-[0_0_14px_rgba(204,255,0,0.4)]"
-                        : "text-white/60 font-bold hover:text-white"
-                      : active
-                        ? "bg-ink text-background font-medium"
-                        : "text-muted-foreground font-medium"
-                  }`}
+                      ? `px-3.5 py-1 text-xs rounded-full font-semibold transition-all cursor-pointer ${
+                          active
+                            ? "bg-[#CCFF00] text-black shadow-[0_0_12px_rgba(204,255,0,0.35)]"
+                            : "text-white/60 hover:text-white"
+                        }`
+                      : `px-5 py-1.5 text-sm font-medium rounded-full transition cursor-pointer ${
+                          active
+                            ? "bg-ink text-background"
+                            : "text-muted-foreground"
+                        }`
+                  }
                 >
                   {v === "list" ? "List" : "Map"}
                 </button>
@@ -631,12 +653,12 @@ function Dashboard() {
             onClick={() => (myLoc ? setNearMe((v) => !v) : requestLocation())}
             className={
               themeMode === "genz"
-                ? `text-[11px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full border transition active:scale-95 ${
+                ? `text-xs font-semibold px-3.5 py-1.5 rounded-full border transition active:scale-95 cursor-pointer ${
                     nearMe
-                      ? "bg-[#CCFF00] text-black border-[#CCFF00] shadow-[0_0_14px_rgba(204,255,0,0.4)]"
+                      ? "bg-[#CCFF00] text-black border-[#CCFF00] shadow-[0_0_12px_rgba(204,255,0,0.35)]"
                       : "bg-white/[0.06] text-white/80 border-white/15 hover:border-[#CCFF00]/50"
                   }`
-                : `text-[11px] uppercase tracking-[0.18em] font-semibold px-3 py-1.5 rounded-full border transition ${
+                : `text-[11px] uppercase tracking-[0.18em] font-semibold px-3 py-1.5 rounded-full border transition cursor-pointer ${
                     nearMe
                       ? "bg-primary text-background border-primary"
                       : "bg-paper text-ink border-border"
@@ -647,7 +669,11 @@ function Dashboard() {
           </button>
         </div>
 
-        <div className="mt-5 flex gap-2 overflow-x-auto -mx-6 px-6 no-scrollbar">
+        <div
+          className={`flex gap-2 overflow-x-auto -mx-6 px-6 no-scrollbar ${
+            themeMode === "genz" ? "mt-3" : "mt-5"
+          }`}
+        >
           {CATEGORIES.map((c) => {
             const isActive = cat === c;
             return (
@@ -656,12 +682,12 @@ function Dashboard() {
                 onClick={() => setCat(c)}
                 className={
                   themeMode === "genz"
-                    ? `shrink-0 px-4 py-2 rounded-full text-xs transition-all tracking-tight font-black ${
+                    ? `shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-normal transition-all cursor-pointer ${
                         isActive
-                          ? "bg-[#CCFF00] text-black border border-[#CCFF00] shadow-[0_0_18px_rgba(204,255,0,0.5)] scale-[1.03]"
-                          : "bg-white/[0.05] text-white/80 border border-white/10 hover:bg-white/[0.12] hover:text-white"
+                          ? "bg-[#CCFF00] text-black border border-[#CCFF00] shadow-[0_0_14px_rgba(204,255,0,0.4)] scale-[1.02]"
+                          : "bg-white/[0.06] text-white/80 border border-white/10 hover:bg-white/[0.12] hover:text-white"
                       }`
-                    : `shrink-0 px-4 py-2 rounded-full text-sm border transition display italic ${
+                    : `shrink-0 px-4 py-2 rounded-full text-sm border transition display italic cursor-pointer ${
                         isActive
                           ? "bg-brand-orange text-ink border-brand-orange font-semibold"
                           : "bg-paper text-ink border-border hover:bg-surface"
@@ -676,15 +702,15 @@ function Dashboard() {
 
         {/* Safety Banner */}
         {themeMode === "genz" ? (
-          <div className="mt-5 flex items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#CCFF00]/10 via-purple-500/10 to-transparent border border-[#CCFF00]/30 p-3.5 backdrop-blur-xl shadow-lg">
-            <div className="h-9 w-9 rounded-xl bg-[#CCFF00]/20 border border-[#CCFF00]/40 flex items-center justify-center text-lg shrink-0 shadow-[0_0_12px_rgba(204,255,0,0.3)]">
+          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-[#CCFF00]/10 via-purple-500/10 to-transparent border border-[#CCFF00]/30 p-3 backdrop-blur-xl shadow-md">
+            <div className="h-8 w-8 rounded-xl bg-[#CCFF00]/20 border border-[#CCFF00]/40 flex items-center justify-center text-base shrink-0 shadow-[0_0_10px_rgba(204,255,0,0.25)]">
               🛡️
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-wider text-[#CCFF00]">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#CCFF00]">
                 Public spots only · Stay safe, stay real
               </p>
-              <p className="text-[11px] text-white/70 font-medium">
+              <p className="text-[11px] text-white/70 font-normal">
                 Cafés, parks, campuses. Zero sketchiness, never share private addresses.
               </p>
             </div>
@@ -707,44 +733,42 @@ function Dashboard() {
 
         {view === "list" ? (
           isLoading ? (
-            <p className="mt-10 text-center text-sm text-muted-foreground">Loading…</p>
+            <p className="mt-8 text-center text-sm text-muted-foreground">Loading…</p>
           ) : filtered.length === 0 ? (
             themeMode === "genz" ? (
-              <div className="mt-10 text-center py-8 px-4 rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-xl">
-                <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#CCFF00]/15 border border-[#CCFF00]/30 text-3xl shadow-[0_0_25px_rgba(204,255,0,0.3)] animate-bounce">
+              <div className="mt-4 text-center py-6 px-4 rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-xl">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#CCFF00]/15 border border-[#CCFF00]/30 text-2xl shadow-[0_0_20px_rgba(204,255,0,0.25)]">
                   ⚡
                 </div>
-                <h3 className="mt-4 text-2xl font-black text-white tracking-tight">
-                  {selectedCity === ALL_CITIES_LABEL ? "No moves yet" : `No moves in ${selectedCity} yet?`}
+                <h3 className="mt-3 text-xl font-extrabold text-white tracking-tight">
+                  {selectedCity === ALL_CITIES_LABEL
+                    ? "No moves yet"
+                    : `No moves in ${selectedCity} yet?`}
                 </h3>
-                <p className="mt-2 text-xs text-white/60 font-medium max-w-xs mx-auto">
+                <p className="mt-1.5 text-xs text-white/60 font-normal max-w-xs mx-auto">
                   {selectedCity === ALL_CITIES_LABEL
                     ? "Be the first to drop a plan and set the vibe."
                     : `No moves planned in ${selectedCity} yet? Drop a plan and set the vibe ⚡`}
                 </p>
-                <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreate(true)}
-                    className="px-5 py-2.5 rounded-full bg-[#CCFF00] text-black font-black text-xs shadow-[0_0_20px_rgba(204,255,0,0.45)] hover:scale-105 active:scale-95 transition"
-                  >
-                    🚀 Drop a Plan
-                  </button>
-                  {selectedCity !== ALL_CITIES_LABEL && (
+                {selectedCity !== ALL_CITIES_LABEL && (
+                  <div className="mt-3.5">
                     <button
                       type="button"
                       onClick={() => handleSelectCity(ALL_CITIES_LABEL)}
-                      className="px-4 py-2 rounded-full border border-white/20 bg-white/5 text-xs font-bold text-white/80 hover:bg-white/10 hover:text-white transition"
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-white/15 bg-white/5 text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white transition active:scale-95 cursor-pointer"
                     >
-                      🌐 Explore All Cities
+                      <span>🌐</span>
+                      <span>Explore All Cities</span>
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="mt-10 text-center">
                 <p className="display text-2xl text-ink">
-                  {selectedCity === ALL_CITIES_LABEL ? "Nothing yet" : `Nothing within 100 km of ${selectedCity} yet`}
+                  {selectedCity === ALL_CITIES_LABEL
+                    ? "Nothing yet"
+                    : `Nothing within 100 km of ${selectedCity} yet`}
                 </p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {selectedCity === ALL_CITIES_LABEL
@@ -764,38 +788,38 @@ function Dashboard() {
             )
           ) : themeMode === "genz" ? (
             /* Gen Z Mode Post Cards: Modern Glassmorphic Tiles */
-            <ul className="mt-5 space-y-3.5">
+            <ul className="mt-3 space-y-3">
               {filtered.map((a) => (
                 <li key={a.id}>
                   <button
                     onClick={() => setSelected(a)}
-                    className="group w-full text-left p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[#CCFF00]/60 hover:bg-white/[0.07] backdrop-blur-xl shadow-lg hover:shadow-[0_8px_30px_rgba(204,255,0,0.16)] transition-all duration-200 active:scale-[0.99] flex flex-col gap-3 cursor-pointer"
+                    className="group w-full text-left p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[#CCFF00]/60 hover:bg-white/[0.07] backdrop-blur-xl shadow-lg hover:shadow-[0_8px_30px_rgba(204,255,0,0.16)] transition-all duration-200 active:scale-[0.99] flex flex-col gap-2.5 cursor-pointer"
                   >
                     {/* Top Tag Row */}
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xl">{a.emoji}</span>
-                        <span className="bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30 font-black text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                        <span className="bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30 font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full">
                           {a.category}
                         </span>
                         {a.__match && (
-                          <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full">
+                          <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-semibold px-2 py-0.5 rounded-full">
                             FOR YOU
                           </span>
                         )}
                         {a.city && (
-                          <span className="text-[10px] font-bold text-white/60">
+                          <span className="text-[10px] font-medium text-white/60">
                             📍 {a.city}
                           </span>
                         )}
                       </div>
-                      <span className="text-[11px] font-bold text-white/50">
+                      <span className="text-[11px] font-medium text-white/50">
                         {formatWhen(a.starts_at)}
                       </span>
                     </div>
 
                     {/* Title */}
-                    <h3 className="text-lg font-black text-white group-hover:text-[#CCFF00] tracking-tight leading-snug transition">
+                    <h3 className="text-base sm:text-lg font-extrabold text-white group-hover:text-[#CCFF00] tracking-tight leading-snug transition">
                       {a.title}
                     </h3>
 
@@ -810,26 +834,33 @@ function Dashboard() {
                           />
                         ) : (
                           <span className="h-5 w-5 rounded-full bg-white/10 flex items-center justify-center font-bold text-[9px] text-white shrink-0">
-                            {a.host_name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
+                            {a.host_name
+                              .split(" ")
+                              .map((s) => s[0])
+                              .join("")
+                              .slice(0, 2)}
                           </span>
                         )}
-                        <span className="font-bold text-white/90">
+                        <span className="font-semibold text-white/90">
                           {a.is_mine ? "You" : a.host_name}
                         </span>
                         {a.host_trust !== null && (
-                          <span className="text-[10px] font-extrabold text-[#CCFF00] bg-[#CCFF00]/10 px-1.5 py-0.5 rounded-md border border-[#CCFF00]/20">
+                          <span className="text-[10px] font-bold text-[#CCFF00] bg-[#CCFF00]/10 px-1.5 py-0.5 rounded-md border border-[#CCFF00]/20">
                             ⚡ {a.host_trust} Trust
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-white/50 text-[11px] font-semibold">
+                        <span className="text-white/50 text-[11px] font-medium">
                           {a.spots_filled}/{a.spots_total} in
                         </span>
                         {a.__distKm != null && (
-                          <span className="text-[11px] font-black text-black bg-[#CCFF00] px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(204,255,0,0.3)]">
-                            📍 {a.__distKm < 1 ? `${Math.round(a.__distKm * 1000)}m` : `${a.__distKm.toFixed(1)}km`}
+                          <span className="text-[11px] font-bold text-black bg-[#CCFF00] px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(204,255,0,0.3)]">
+                            📍{" "}
+                            {a.__distKm < 1
+                              ? `${Math.round(a.__distKm * 1000)}m`
+                              : `${a.__distKm.toFixed(1)}km`}
                           </span>
                         )}
                       </div>
@@ -958,13 +989,13 @@ function Dashboard() {
         onClick={() => setShowCreate(true)}
         className={
           themeMode === "genz"
-            ? "fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 bg-[#CCFF00] text-black rounded-full px-6 py-3.5 shadow-[0_8px_30px_rgba(204,255,0,0.5)] hover:shadow-[0_10px_35px_rgba(204,255,0,0.7)] hover:scale-105 active:scale-95 transition-all font-black text-sm whitespace-nowrap cursor-pointer tracking-tight"
+            ? "fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-[#CCFF00] text-black rounded-full px-5 py-3 shadow-[0_8px_25px_rgba(204,255,0,0.45)] hover:shadow-[0_10px_30px_rgba(204,255,0,0.6)] hover:scale-105 active:scale-95 transition-all font-extrabold text-sm whitespace-nowrap cursor-pointer tracking-tight"
             : "fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-ink text-background rounded-full pl-5 pr-6 py-3.5 shadow-xl shadow-ink/25 hover:bg-ink/90 active:scale-[0.98] transition font-semibold whitespace-nowrap cursor-pointer"
         }
       >
         {themeMode === "genz" ? (
           <>
-            <span className="text-lg leading-none font-black">⚡</span>
+            <span className="text-base leading-none font-black">⚡</span>
             <span>Drop a Plan</span>
           </>
         ) : (
