@@ -100,42 +100,43 @@
 }
 
 /* ========================================================
-   GEN Z MODE — OLED Pitch Black, Electric Lime & Glassmorphism
+   GEN Z MODE — Midnight Obsidian, Electric Periwinkle & Warm Amber
    Typography & font changes are scoped STRICTLY to Gen Z mode
    ======================================================== */
 [data-theme="genz"] {
-  --background: #08090d;
-  --surface: #10131d;
-  --paper: #161a29;
+  --background: #090c15;
+  --surface: #101422;
+  --paper: #121626;
   --ink: #f8fafc;
   --foreground: #f8fafc;
-  --card: #131726;
+  --card: #121626;
   --card-foreground: #f8fafc;
-  --popover: #131726;
+  --popover: #121626;
   --popover-foreground: #f8fafc;
-  --primary: #ccff00; /* Electric Lime */
-  --primary-foreground: #000000;
-  --brand-orange: #ccff00; /* Electric Lime */
-  --brand-orange-foreground: #000000;
-  --secondary: #1f2538;
+  --primary: #5b68f6; /* Electric Periwinkle / Blurple */
+  --primary-foreground: #ffffff;
+  --brand-orange: #5b68f6; /* Electric Periwinkle */
+  --brand-orange-foreground: #ffffff;
+  --accent-gold: #ffa84a; /* Warm Amber for badges / ⚡ */
+  --secondary: #161b2e;
   --secondary-foreground: #f8fafc;
-  --muted: #1c2235;
-  --muted-foreground: #94a3b8;
-  --border: rgba(255, 255, 255, 0.12);
-  --input: #1a1f32;
-  --ring: #ccff00;
+  --muted: #161b2e;
+  --muted-foreground: #8e9bb0;
+  --border: #222a40;
+  --input: #161b2e;
+  --ring: #5b68f6;
   font-family: var(--font-genz);
 }
 
 [data-theme="genz"] body {
-  background-color: #08090d;
+  background-color: #090c15;
   color: #f8fafc;
   font-family: var(--font-genz);
   letter-spacing: -0.01em;
   background-image:
-    radial-gradient(rgba(204, 255, 0, 0.05) 1px, transparent 1px),
-    radial-gradient(circle at 10% 20%, rgba(204, 255, 0, 0.08) 0%, transparent 45%),
-    radial-gradient(circle at 90% 85%, rgba(168, 85, 247, 0.09) 0%, transparent 45%);
+    radial-gradient(rgba(91, 104, 246, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 10% 20%, rgba(91, 104, 246, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 90% 85%, rgba(139, 92, 246, 0.08) 0%, transparent 45%);
   background-size: 24px 24px, 100% 100%, 100% 100%;
 }
 

@@ -60,3 +60,4 @@ WHERE longitude IS NULL AND location_lng IS NOT NULL;
 
 -- 4. Create index on LOWER(city) for high-performance feed filtering on activities
 CREATE INDEX IF NOT EXISTS idx_activities_city_lower ON public.activities (LOWER(city));
+

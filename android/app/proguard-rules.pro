@@ -1,21 +1,33 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Capacitor & R8 Optimization ProGuard Rules
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# 1. Keep JavascriptInterface methods used by WebView
+-keepattributes *Annotation*
+-keepattributes JavascriptInterface
+-keepattributes SourceFile,LineNumberTable
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# 2. Keep Capacitor Bridge and Plugins
+-keep class com.getcapacitor.** { *; }
+-keep interface com.getcapacitor.** { *; }
+-keep class * extends com.getcapacitor.Plugin { *; }
+-dontwarn com.getcapacitor.**
+
+# 3. Keep Main Activity and Custom Bridge
+-keep class com.bondoo.connect.** { *; }
+-keepclassmembers class com.bondoo.connect.MainActivity { *; }
+
+# 4. Keep Cordova Plugin compatibility
+-keep class org.apache.cordova.** { *; }
+-dontwarn org.apache.cordova.**
+
+# 5. AndroidX & Support Libraries
+-keep class androidx.browser.customtabs.** { *; }
+-keep class androidx.core.splashscreen.** { *; }
+-dontwarn androidx.browser.customtabs.**
+
+# 6. WebKit
+-keep class android.webkit.** { *; }
+-dontwarn android.webkit.**

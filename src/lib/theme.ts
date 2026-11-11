@@ -39,3 +39,4 @@ export function applyThemeToDocument(mode: ThemeMode): void {
     document.documentElement.classList.remove("dark");
   }
 }
+

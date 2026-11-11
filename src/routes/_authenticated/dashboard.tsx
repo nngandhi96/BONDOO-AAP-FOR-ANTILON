@@ -491,7 +491,7 @@ function Dashboard() {
             onClick={handleToggleTheme}
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm transition active:scale-95 cursor-pointer ${
               themeMode === "genz"
-                ? "bg-[#CCFF00] text-black border border-[#CCFF00] font-bold shadow-[0_0_14px_rgba(204,255,0,0.35)] hover:scale-105"
+                ? "bg-[#141828] text-white border border-[#222A40] hover:border-indigo-400/50 shadow-[0_0_12px_rgba(91,104,246,0.2)]"
                 : "bg-paper border border-border hover:border-brand-orange text-ink"
             }`}
             title={
@@ -501,7 +501,9 @@ function Dashboard() {
             }
           >
             <span className="text-xs">{themeMode === "genz" ? "⚡" : "✨"}</span>
-            <span>{themeMode === "genz" ? "Zine Mode 📰" : "Gen Z Mode"}</span>
+            <span className={themeMode === "genz" ? "text-amber-300 font-semibold" : ""}>
+              {themeMode === "genz" ? "Zine Mode 📰" : "Gen Z Mode"}
+            </span>
           </button>
         </div>
 
@@ -515,7 +517,7 @@ function Dashboard() {
           <div className="min-w-0">
             {themeMode === "genz" ? (
               <>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8E9BB0]">
                   WHAT'S THE MOVE
                 </p>
                 <button
@@ -524,11 +526,11 @@ function Dashboard() {
                   className="group mt-0.5 inline-flex items-center gap-2 text-left cursor-pointer active:scale-[0.98] transition-transform max-w-full"
                   title="Switch Location"
                 >
-                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white group-hover:text-[#CCFF00] transition-colors truncate">
+                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white group-hover:text-[#5B68F6] transition-colors truncate">
                     {selectedCity.toUpperCase()}
                   </h1>
-                  <span className="text-2xl text-[#CCFF00] shrink-0">⚡</span>
-                  <span className="text-sm text-white/50 group-hover:text-white transition-colors shrink-0">
+                  <span className="text-2xl text-[#FFA84A] shrink-0">⚡</span>
+                  <span className="text-sm text-[#8E9BB0] group-hover:text-white transition-colors shrink-0">
                     ▾
                   </span>
                 </button>
@@ -569,7 +571,7 @@ function Dashboard() {
               to="/profile"
               className={`h-11 w-11 rounded-full flex items-center justify-center border transition ${
                 themeMode === "genz"
-                  ? "bg-white/[0.08] border-white/20 hover:border-[#CCFF00]"
+                  ? "bg-[#141828] border-[#222A40] text-white/80 hover:text-white hover:border-indigo-400/40 shadow-sm"
                   : "bg-paper border-border"
               }`}
               aria-label="Profile"
@@ -595,7 +597,7 @@ function Dashboard() {
             }
             className={`w-full mb-3 flex items-center gap-3 rounded-2xl p-3.5 text-left transition ${
               themeMode === "genz"
-                ? "bg-white/[0.05] border border-[#CCFF00]/40 backdrop-blur-md"
+                ? "bg-[#121626]/90 border border-indigo-500/30 backdrop-blur-md shadow-md"
                 : "bg-brand-orange/12 border border-brand-orange/30"
             }`}
           >
@@ -603,7 +605,7 @@ function Dashboard() {
             <div className="flex-1 min-w-0">
               <p
                 className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${
-                  themeMode === "genz" ? "text-[#CCFF00]" : "text-brand-orange"
+                  themeMode === "genz" ? "text-[#FFA84A]" : "text-brand-orange"
                 }`}
               >
                 Rate your meetup
@@ -620,7 +622,7 @@ function Dashboard() {
           <div
             className={`inline-flex rounded-full p-0.5 border ${
               themeMode === "genz"
-                ? "bg-white/[0.06] border-white/10 backdrop-blur-md"
+                ? "bg-[#141828] border-[#222A40]"
                 : "bg-surface border-border p-1"
             }`}
           >
@@ -634,8 +636,8 @@ function Dashboard() {
                     themeMode === "genz"
                       ? `px-3.5 py-1 text-xs rounded-full font-semibold transition-all cursor-pointer ${
                           active
-                            ? "bg-[#CCFF00] text-black shadow-[0_0_12px_rgba(204,255,0,0.35)]"
-                            : "text-white/60 hover:text-white"
+                            ? "bg-[#5B68F6] text-white shadow-[0_0_15px_rgba(91,104,246,0.45)]"
+                            : "text-[#8E9BB0] hover:text-white"
                         }`
                       : `px-5 py-1.5 text-sm font-medium rounded-full transition cursor-pointer ${
                           active
@@ -655,8 +657,8 @@ function Dashboard() {
               themeMode === "genz"
                 ? `text-xs font-semibold px-3.5 py-1.5 rounded-full border transition active:scale-95 cursor-pointer ${
                     nearMe
-                      ? "bg-[#CCFF00] text-black border-[#CCFF00] shadow-[0_0_12px_rgba(204,255,0,0.35)]"
-                      : "bg-white/[0.06] text-white/80 border-white/15 hover:border-[#CCFF00]/50"
+                      ? "bg-[#5B68F6] text-white border-[#5B68F6] shadow-[0_0_14px_rgba(91,104,246,0.45)]"
+                      : "bg-[#141828] text-[#D1D5DB] border-[#222A40] hover:border-indigo-400/40"
                   }`
                 : `text-[11px] uppercase tracking-[0.18em] font-semibold px-3 py-1.5 rounded-full border transition cursor-pointer ${
                     nearMe
@@ -684,8 +686,8 @@ function Dashboard() {
                   themeMode === "genz"
                     ? `shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-normal transition-all cursor-pointer ${
                         isActive
-                          ? "bg-[#CCFF00] text-black border border-[#CCFF00] shadow-[0_0_14px_rgba(204,255,0,0.4)] scale-[1.02]"
-                          : "bg-white/[0.06] text-white/80 border border-white/10 hover:bg-white/[0.12] hover:text-white"
+                          ? "bg-[#5B68F6] text-white border border-[#5B68F6] shadow-[0_0_14px_rgba(91,104,246,0.45)] scale-[1.02]"
+                          : "bg-[#141828] text-[#D1D5DB] border border-[#222A40] hover:bg-[#1A2035] hover:text-white"
                       }`
                     : `shrink-0 px-4 py-2 rounded-full text-sm border transition display italic cursor-pointer ${
                         isActive
@@ -702,15 +704,15 @@ function Dashboard() {
 
         {/* Safety Banner */}
         {themeMode === "genz" ? (
-          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-[#CCFF00]/10 via-purple-500/10 to-transparent border border-[#CCFF00]/30 p-3 backdrop-blur-xl shadow-md">
-            <div className="h-8 w-8 rounded-xl bg-[#CCFF00]/20 border border-[#CCFF00]/40 flex items-center justify-center text-base shrink-0 shadow-[0_0_10px_rgba(204,255,0,0.25)]">
+          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-[#121626]/90 border border-indigo-500/25 p-3.5 backdrop-blur-xl shadow-lg">
+            <div className="h-8 w-8 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-base shrink-0 text-[#5B68F6] shadow-[0_0_12px_rgba(91,104,246,0.25)]">
               🛡️
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#CCFF00]">
-                Public spots only · Stay safe, stay real
+              <p className="text-xs font-bold uppercase tracking-wider text-[#FFA84A]">
+                PUBLIC SPOTS ONLY · STAY SAFE, STAY REAL
               </p>
-              <p className="text-[11px] text-white/70 font-normal">
+              <p className="text-[11px] text-[#8E9BB0] font-normal">
                 Cafés, parks, campuses. Zero sketchiness, never share private addresses.
               </p>
             </div>
@@ -736,8 +738,8 @@ function Dashboard() {
             <p className="mt-8 text-center text-sm text-muted-foreground">Loading…</p>
           ) : filtered.length === 0 ? (
             themeMode === "genz" ? (
-              <div className="mt-4 text-center py-6 px-4 rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-xl">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#CCFF00]/15 border border-[#CCFF00]/30 text-2xl shadow-[0_0_20px_rgba(204,255,0,0.25)]">
+              <div className="mt-4 text-center py-7 px-5 rounded-3xl bg-[#121626]/90 border border-[#222A40] backdrop-blur-xl shadow-xl">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1C2138] border border-indigo-500/30 text-2xl text-[#FFA84A] shadow-[0_0_25px_rgba(91,104,246,0.35)]">
                   ⚡
                 </div>
                 <h3 className="mt-3 text-xl font-extrabold text-white tracking-tight">
@@ -745,7 +747,7 @@ function Dashboard() {
                     ? "No moves yet"
                     : `No moves in ${selectedCity} yet?`}
                 </h3>
-                <p className="mt-1.5 text-xs text-white/60 font-normal max-w-xs mx-auto">
+                <p className="mt-1.5 text-xs text-[#8E9BB0] font-normal max-w-xs mx-auto">
                   {selectedCity === ALL_CITIES_LABEL
                     ? "Be the first to drop a plan and set the vibe."
                     : `No moves planned in ${selectedCity} yet? Drop a plan and set the vibe ⚡`}
@@ -755,7 +757,7 @@ function Dashboard() {
                     <button
                       type="button"
                       onClick={() => handleSelectCity(ALL_CITIES_LABEL)}
-                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-white/15 bg-white/5 text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white transition active:scale-95 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-[#222A40] bg-[#141828] text-xs font-semibold text-[#D1D5DB] hover:bg-[#1A2035] hover:text-white transition active:scale-95 cursor-pointer"
                     >
                       <span>🌐</span>
                       <span>Explore All Cities</span>
@@ -793,13 +795,13 @@ function Dashboard() {
                 <li key={a.id}>
                   <button
                     onClick={() => setSelected(a)}
-                    className="group w-full text-left p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[#CCFF00]/60 hover:bg-white/[0.07] backdrop-blur-xl shadow-lg hover:shadow-[0_8px_30px_rgba(204,255,0,0.16)] transition-all duration-200 active:scale-[0.99] flex flex-col gap-2.5 cursor-pointer"
+                    className="group w-full text-left p-3.5 rounded-2xl bg-[#121626]/90 border border-[#222A40] hover:border-[#5B68F6]/60 hover:bg-[#151B2E] backdrop-blur-xl shadow-lg hover:shadow-[0_8px_30px_rgba(91,104,246,0.2)] transition-all duration-200 active:scale-[0.99] flex flex-col gap-2.5 cursor-pointer"
                   >
                     {/* Top Tag Row */}
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xl">{a.emoji}</span>
-                        <span className="bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30 font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full">
+                        <span className="bg-[#5B68F6]/15 text-[#5B68F6] border border-[#5B68F6]/30 font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full">
                           {a.category}
                         </span>
                         {a.__match && (
@@ -819,7 +821,7 @@ function Dashboard() {
                     </div>
 
                     {/* Title */}
-                    <h3 className="text-base sm:text-lg font-extrabold text-white group-hover:text-[#CCFF00] tracking-tight leading-snug transition">
+                    <h3 className="text-base sm:text-lg font-extrabold text-white group-hover:text-[#5B68F6] tracking-tight leading-snug transition">
                       {a.title}
                     </h3>
 
@@ -845,7 +847,7 @@ function Dashboard() {
                           {a.is_mine ? "You" : a.host_name}
                         </span>
                         {a.host_trust !== null && (
-                          <span className="text-[10px] font-bold text-[#CCFF00] bg-[#CCFF00]/10 px-1.5 py-0.5 rounded-md border border-[#CCFF00]/20">
+                          <span className="text-[10px] font-bold text-[#FFA84A] bg-[#FFA84A]/10 px-1.5 py-0.5 rounded-md border border-[#FFA84A]/25">
                             ⚡ {a.host_trust} Trust
                           </span>
                         )}
@@ -856,7 +858,7 @@ function Dashboard() {
                           {a.spots_filled}/{a.spots_total} in
                         </span>
                         {a.__distKm != null && (
-                          <span className="text-[11px] font-bold text-black bg-[#CCFF00] px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(204,255,0,0.3)]">
+                          <span className="text-[11px] font-bold text-white bg-[#5B68F6] px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(91,104,246,0.3)]">
                             📍{" "}
                             {a.__distKm < 1
                               ? `${Math.round(a.__distKm * 1000)}m`
@@ -989,13 +991,13 @@ function Dashboard() {
         onClick={() => setShowCreate(true)}
         className={
           themeMode === "genz"
-            ? "fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-[#CCFF00] text-black rounded-full px-5 py-3 shadow-[0_8px_25px_rgba(204,255,0,0.45)] hover:shadow-[0_10px_30px_rgba(204,255,0,0.6)] hover:scale-105 active:scale-95 transition-all font-extrabold text-sm whitespace-nowrap cursor-pointer tracking-tight"
+            ? "fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-[#5B68F6] text-white rounded-full px-6 py-3.5 shadow-[0_4px_25px_rgba(91,104,246,0.55)] hover:shadow-[0_6px_30px_rgba(91,104,246,0.7)] hover:scale-105 active:scale-95 transition-all font-extrabold text-sm whitespace-nowrap cursor-pointer tracking-tight"
             : "fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-ink text-background rounded-full pl-5 pr-6 py-3.5 shadow-xl shadow-ink/25 hover:bg-ink/90 active:scale-[0.98] transition font-semibold whitespace-nowrap cursor-pointer"
         }
       >
         {themeMode === "genz" ? (
           <>
-            <span className="text-base leading-none font-black">⚡</span>
+            <span className="text-[#FFA84A] text-base leading-none font-black">⚡</span>
             <span>Drop a Plan</span>
           </>
         ) : (

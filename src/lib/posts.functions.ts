@@ -134,3 +134,4 @@ export const createPost = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { id: row.id };
   });
+
