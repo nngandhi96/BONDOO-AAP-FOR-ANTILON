@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BondooLogo } from "@/components/bondoo-logo";
+import { getPendingMobileAppHandoff } from "@/lib/mobile-auth";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -21,6 +22,7 @@ function Landing() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (getPendingMobileAppHandoff()) return;
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) navigate({ to: "/dashboard", replace: true });
     });
@@ -49,19 +51,19 @@ function Landing() {
         </div>
 
         <div className="mt-14">
-              <p className="text-xs uppercase tracking-[0.22em] text-brand-orange font-semibold">
-                An anti-loneliness club
-              </p>
-              <h1 className="display mt-4 text-[3.4rem] leading-[0.95] text-ink">
-                Meet someone
-                <br />
-                for a <em className="text-primary not-italic">walk</em>.
-              </h1>
-              <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground max-w-[22rem]">
-                Bondoo connects verified neighbours for simple, human things —
-                a coffee, a reading hour, a lap around the park.
-                <span className="text-ink"> No dating. Just company.</span>
-              </p>
+          <p className="text-xs uppercase tracking-[0.22em] text-brand-orange font-semibold">
+            An anti-loneliness club
+          </p>
+          <h1 className="display mt-4 text-[3.4rem] leading-[0.95] text-ink">
+            Meet someone
+            <br />
+            for a <em className="text-primary not-italic">walk</em>.
+          </h1>
+          <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground max-w-[22rem]">
+            Bondoo connects verified neighbours for simple, human things — a coffee, a reading hour,
+            a lap around the park.
+            <span className="text-ink"> No dating. Just company.</span>
+          </p>
         </div>
 
         <div className="mt-10 space-y-3">

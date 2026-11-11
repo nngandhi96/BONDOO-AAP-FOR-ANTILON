@@ -1,17 +1,18 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { App } from "@capacitor/app";
 import { supabase } from "@/integrations/supabase/client";
 import { BondooLogo } from "@/components/bondoo-logo";
 import { AgeGate, getStoredAgeConsent } from "@/components/age-gate";
-import { isNativeMobileApp } from "@/lib/platform";
-
-function safeNext(input: unknown): string {
-  if (typeof input !== "string" || !input) return "/dashboard";
-  // Only allow same-origin relative paths.
-  if (!input.startsWith("/") || input.startsWith("//")) return "/dashboard";
-  return input;
-}
+import { isAndroidBrowser, isNativeMobileApp } from "@/lib/platform";
+import {
+  buildAndroidAppReturnUrls,
+  getPendingMobileAppHandoff,
+  markWebOAuthInitiated,
+  safeAuthNext,
+  saveNativeAuthNext,
+  wasWebOAuthInitiatedInBrowser,
+} from "@/lib/mobile-auth";
+import { isProcessingNativeDeepLink, syncStoredAgeConsent } from "@/lib/native-auth-callback";
 
 export type AuthSearch = {
   next?: string;
@@ -50,7 +51,7 @@ export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): AuthSearch => {
     const res: AuthSearch = {};
     if (typeof s.next === "string" && s.next) {
-      res.next = safeNext(s.next);
+      res.next = safeAuthNext(s.next);
     }
     if (typeof s.code === "string" && s.code) {
       res.code = s.code;
@@ -106,110 +107,29 @@ function AuthScreen() {
 
   // Handle auth session, OAuth callback code exchange, and reactive auth state changes
   useEffect(() => {
+    if (getPendingMobileAppHandoff()) return;
     let isMounted = true;
 
-    const syncAgeConsent = async (userId: string) => {
-      const consent = getStoredAgeConsent();
-      if (consent) {
-        try {
-          await supabase
-            .from("profiles")
-            .update({ age_confirmed_at: consent.confirmedAt })
-            .eq("id", userId);
-        } catch (e) {
-          console.warn("[Auth] Failed to update age_confirmed_at", e);
-        }
-      }
-    };
-
     // 1. Subscribe to auth state changes (e.g. after OAuth redirect, signin, or password recovery)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!isMounted) return;
-        if (event === "PASSWORD_RECOVERY") {
-          setMode("reset");
-          setIsOtpStep(false);
-          setError(null);
-          setInfo("Please set your new password below.");
-          return;
-        }
-        if (session?.user && mode !== "reset" && search.mode !== "reset") {
-          await syncAgeConsent(session.user.id);
-          window.location.replace(safeNext(next));
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("reset");
+        setIsOtpStep(false);
+        setError(null);
+        setInfo("Please set your new password below.");
+        return;
       }
-    );
+      if (session?.user && mode !== "reset" && search.mode !== "reset") {
+        if (isProcessingNativeDeepLink()) return;
+        await syncStoredAgeConsent(session.user.id);
+        window.location.replace(safeAuthNext(next));
+      }
+    });
 
-    // 2. Listen for native Android deep link events (e.g. bondoo://auth?code=... or bondoo://auth#access_token=...)
-    let appUrlListenerCleanup: (() => void) | null = null;
-    if (isNativeMobileApp()) {
-      App.addListener("appUrlOpen", async (event) => {
-        try {
-          const rawUrl = event.url;
-          if (!rawUrl) return;
-          const dummyOrigin = "https://bondoo-connect-main.vercel.app";
-          const normalized = rawUrl.startsWith("bondoo://")
-            ? rawUrl.replace("bondoo://auth", `${dummyOrigin}/auth`).replace("bondoo://", `${dummyOrigin}/`)
-            : rawUrl;
-          const parsed = new URL(normalized);
-
-          let deepCode = parsed.searchParams.get("code");
-          let accessToken = parsed.searchParams.get("access_token");
-          let refreshToken = parsed.searchParams.get("refresh_token");
-
-          if (parsed.hash) {
-            const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
-            if (!deepCode) deepCode = hashParams.get("code");
-            if (!accessToken) accessToken = hashParams.get("access_token");
-            if (!refreshToken) refreshToken = hashParams.get("refresh_token");
-          }
-
-          const errDesc = parsed.searchParams.get("error_description") || parsed.searchParams.get("error");
-          if (errDesc) {
-            setLoading(false);
-            setError(decodeURIComponent(errDesc));
-            return;
-          }
-
-          // Case A: Access & refresh tokens received directly
-          if (accessToken && refreshToken) {
-            setLoading(true);
-            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-            if (!sessionError && sessionData.session?.user) {
-              await syncAgeConsent(sessionData.session.user.id);
-              window.location.replace(safeNext(next));
-              return;
-            } else if (sessionError) {
-              setLoading(false);
-              setError(getAuthErrorMessage(sessionError));
-              return;
-            }
-          }
-
-          // Case B: Authorization code received
-          if (deepCode) {
-            setLoading(true);
-            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(deepCode);
-            if (!exchangeError && data.session?.user) {
-              await syncAgeConsent(data.session.user.id);
-              window.location.replace(safeNext(next));
-            } else if (exchangeError) {
-              setLoading(false);
-              setError(getAuthErrorMessage(exchangeError));
-            }
-          }
-        } catch (e) {
-          console.warn("[Auth] Failed to process appUrlOpen deep link", e);
-        }
-      }).then((handle) => {
-        appUrlListenerCleanup = () => handle.remove();
-      });
-    }
-
-    // 3. Check if already signed in on initial load
+    // 2. Check if already signed in on initial load
     supabase.auth.getSession().then(async ({ data }) => {
       if (!isMounted) return;
       if (
@@ -221,12 +141,12 @@ function AuthScreen() {
         return;
       }
       if (data.session?.user) {
-        await syncAgeConsent(data.session.user.id);
-        window.location.replace(safeNext(next));
+        await syncStoredAgeConsent(data.session.user.id);
+        window.location.replace(safeAuthNext(next));
       }
     });
 
-    // 4. Check for OAuth code in search params or window.location
+    // 3. Check for OAuth code in search params or window.location
     const code =
       search.code ||
       (typeof window !== "undefined"
@@ -249,25 +169,35 @@ function AuthScreen() {
               setInfo("Please set your new password below.");
               return;
             }
-            await syncAgeConsent(data.session.user.id);
+            await syncStoredAgeConsent(data.session.user.id);
 
-            // If user is on a mobile browser outside the native app, immediately transfer the authenticated session into the native app
-            if (typeof window !== "undefined" && !isNativeMobileApp()) {
-              const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-              const token = data.session.access_token;
-              const rtoken = data.session.refresh_token;
-
-              if (isMobileBrowser && token && rtoken) {
-                const intentUrl = `intent://auth?access_token=${encodeURIComponent(token)}&refresh_token=${encodeURIComponent(rtoken)}&next=${encodeURIComponent(next)}#Intent;scheme=bondoo;package=com.bondoo.connect;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
-                try {
-                  window.location.href = intentUrl;
-                } catch {
-                  window.location.href = `bondoo://auth?access_token=${encodeURIComponent(token)}&refresh_token=${encodeURIComponent(rtoken)}&next=${encodeURIComponent(next)}`;
-                }
+            // If on Android mobile browser and not explicitly started as a web login,
+            // transfer the authenticated session into the native app without navigating to Chrome /dashboard.
+            if (
+              isAndroidBrowser() &&
+              !wasWebOAuthInitiatedInBrowser() &&
+              data.session.access_token &&
+              data.session.refresh_token
+            ) {
+              const { intentUrl, schemeUrl } = buildAndroidAppReturnUrls({
+                code: null,
+                accessToken: data.session.access_token,
+                refreshToken: data.session.refresh_token,
+                error: null,
+                errorDescription: null,
+                next: safeAuthNext(next),
+                mode: null,
+                type: null,
+              });
+              try {
+                window.location.href = intentUrl;
+              } catch {
+                window.location.href = schemeUrl;
               }
+              return;
             }
 
-            window.location.replace(safeNext(next));
+            window.location.replace(safeAuthNext(next));
           } else {
             setLoading(false);
           }
@@ -281,7 +211,9 @@ function AuthScreen() {
 
     // 4. Check for OAuth error in URL search or hash
     if (search.error_description || search.error) {
-      setError(decodeURIComponent(search.error_description || search.error || "Authentication failed."));
+      setError(
+        decodeURIComponent(search.error_description || search.error || "Authentication failed."),
+      );
     } else if (typeof window !== "undefined" && window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const hashErr = hashParams.get("error_description") || hashParams.get("error");
@@ -293,7 +225,6 @@ function AuthScreen() {
     return () => {
       isMounted = false;
       subscription.unsubscribe();
-      if (appUrlListenerCleanup) appUrlListenerCleanup();
     };
   }, [next, search.code, search.error, search.error_description, search.mode, search.type, mode]);
 
@@ -319,7 +250,9 @@ function AuthScreen() {
         redirectTo: redirectUrl,
       });
       if (error) throw error;
-      setInfo(`Password reset link sent to ${email.trim()}. Please check your inbox and spam folder.`);
+      setInfo(
+        `Password reset link sent to ${email.trim()}. Please check your inbox and spam folder.`,
+      );
     } catch (err) {
       setError(getAuthErrorMessage(err));
     } finally {
@@ -347,7 +280,7 @@ function AuthScreen() {
       if (error) throw error;
       setInfo("Password updated successfully! Redirecting…");
       setTimeout(() => {
-        window.location.replace(safeNext(next));
+        window.location.replace(safeAuthNext(next));
       }, 1200);
     } catch (err) {
       setError(getAuthErrorMessage(err));
@@ -418,7 +351,13 @@ function AuthScreen() {
       return err;
     }
     if (typeof err === "object" && err !== null) {
-      const e = err as { message?: string; msg?: string; error_description?: string; name?: string; status?: number };
+      const e = err as {
+        message?: string;
+        msg?: string;
+        error_description?: string;
+        name?: string;
+        status?: number;
+      };
       const msg = e.message || e.msg || e.error_description;
       if (!msg || msg === "{}" || msg.trim() === "") {
         return "Unable to connect to authentication server. Please check your network connection.";
@@ -583,25 +522,39 @@ function AuthScreen() {
     setGoogleLoading(true);
     try {
       const isNative = isNativeMobileApp();
-      // In native Android/Capacitor app, redirect to custom scheme bondoo://auth
-      // so Chrome Custom Tabs immediately closes upon Google OAuth completion and returns to app!
+      if (isNative) {
+        saveNativeAuthNext(next);
+      } else {
+        markWebOAuthInitiated();
+      }
+
+      // Use clean custom scheme bondoo://auth without query string in native app so it matches
+      // strict Supabase Redirect URL entries and immediately returns from Chrome Custom Tabs to MainActivity.
       const redirectUrl = isNative
-        ? `bondoo://auth?next=${encodeURIComponent(next)}`
+        ? "bondoo://auth"
         : `${window.location.origin}/auth?next=${encodeURIComponent(next)}`;
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: redirectUrl,
+          skipBrowserRedirect: isNative,
           queryParams: {
             prompt: "select_account",
           },
         },
       });
       if (oauthError) throw oauthError;
-      if (data?.url) {
-        // If running inside Android app with native Chrome Custom Tabs launcher
-        const nativeAuth = typeof window !== "undefined" ? (window as unknown as { BondooNativeAuth?: { openSystemBrowser: (url: string) => void } }).BondooNativeAuth : undefined;
+      if (isNative && data?.url) {
+        // Launch Chrome Custom Tabs cleanly without navigating the underlying WebView
+        const nativeAuth =
+          typeof window !== "undefined"
+            ? (
+                window as unknown as {
+                  BondooNativeAuth?: { openSystemBrowser: (url: string) => void };
+                }
+              ).BondooNativeAuth
+            : undefined;
         if (nativeAuth?.openSystemBrowser) {
           nativeAuth.openSystemBrowser(data.url);
           setGoogleLoading(false);
@@ -651,24 +604,34 @@ function AuthScreen() {
                 ? "Recovery Code"
                 : "Verify Email"
               : mode === "forgot"
-              ? "Account Recovery"
-              : mode === "reset"
-              ? "New Password"
-              : mode === "signup"
-              ? "New here"
-              : "Welcome back"}
+                ? "Account Recovery"
+                : mode === "reset"
+                  ? "New Password"
+                  : mode === "signup"
+                    ? "New here"
+                    : "Welcome back"}
           </p>
           <h1 className="display mt-3 text-[2.8rem] leading-[0.95] text-ink">
             {isOtpStep ? (
-              <>Enter the <em className="text-primary not-italic">code</em>.</>
+              <>
+                Enter the <em className="text-primary not-italic">code</em>.
+              </>
             ) : mode === "forgot" ? (
-              <>Reset your <em className="text-primary not-italic">password</em>.</>
+              <>
+                Reset your <em className="text-primary not-italic">password</em>.
+              </>
             ) : mode === "reset" ? (
-              <>Create new <em className="text-primary not-italic">password</em>.</>
+              <>
+                Create new <em className="text-primary not-italic">password</em>.
+              </>
             ) : mode === "signup" ? (
-              <>Join the <em className="text-primary not-italic">club</em>.</>
+              <>
+                Join the <em className="text-primary not-italic">club</em>.
+              </>
             ) : (
-              <>Sign in to <em className="text-primary not-italic">Bondoo</em>.</>
+              <>
+                Sign in to <em className="text-primary not-italic">Bondoo</em>.
+              </>
             )}
           </h1>
           {isOtpStep ? (
@@ -783,9 +746,7 @@ function AuthScreen() {
             )}
 
             {info && (
-              <p className="text-sm text-primary bg-primary/10 rounded-xl px-3 py-2">
-                {info}
-              </p>
+              <p className="text-sm text-primary bg-primary/10 rounded-xl px-3 py-2">{info}</p>
             )}
 
             <button
@@ -868,9 +829,7 @@ function AuthScreen() {
             )}
 
             {info && (
-              <p className="text-sm text-primary bg-primary/10 rounded-xl px-3 py-2">
-                {info}
-              </p>
+              <p className="text-sm text-primary bg-primary/10 rounded-xl px-3 py-2">{info}</p>
             )}
 
             <button

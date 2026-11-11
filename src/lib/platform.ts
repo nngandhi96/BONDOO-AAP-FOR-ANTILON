@@ -6,12 +6,29 @@ import { Capacitor } from "@capacitor/core";
  */
 export function isNativeMobileApp(): boolean {
   if (typeof window === "undefined") return false;
+  const win = window as unknown as {
+    BondooNativeAuth?: unknown;
+    androidBridge?: unknown;
+    webkit?: { messageHandlers?: { bridge?: unknown } };
+    Capacitor?: { isNativePlatform?: () => boolean };
+  };
   return (
     Capacitor.isNativePlatform() ||
-    !!(window as unknown as { BondooNativeAuth?: unknown }).BondooNativeAuth ||
-    (typeof (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform === "function" &&
-      !!(window as unknown as { Capacitor?: { isNativePlatform: () => boolean } }).Capacitor?.isNativePlatform())
+    !!win.BondooNativeAuth ||
+    !!win.androidBridge ||
+    !!win.webkit?.messageHandlers?.bridge ||
+    (typeof win.Capacitor?.isNativePlatform === "function" && !!win.Capacitor.isNativePlatform()) ||
+    /;\s*wv\)/i.test(navigator.userAgent)
   );
+}
+
+/**
+ * Returns true if running inside an external Android mobile browser (Chrome / Custom Tabs),
+ * outside the Bondoo native WebView wrapper.
+ */
+export function isAndroidBrowser(): boolean {
+  if (typeof window === "undefined") return false;
+  return !isNativeMobileApp() && /Android/i.test(navigator.userAgent);
 }
 
 /**

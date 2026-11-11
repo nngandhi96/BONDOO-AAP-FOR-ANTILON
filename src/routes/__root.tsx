@@ -7,11 +7,18 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { PresenceTracker } from "../components/presence-tracker";
+import { MobileAppHandoffScreen } from "../components/mobile-app-handoff-screen";
+import {
+  dismissMobileAppHandoff,
+  getPendingMobileAppHandoff,
+  type MobileAppHandoff,
+} from "../lib/mobile-auth";
+import { setupNativeAuthDeepLinkListener } from "../lib/native-auth-callback";
 
 function NotFoundComponent() {
   return (
@@ -144,10 +151,39 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [mobileHandoff, setMobileHandoff] = useState<MobileAppHandoff | null>(null);
+  const [processingNativeAuth, setProcessingNativeAuth] = useState(false);
+
+  useEffect(() => {
+    const pending = getPendingMobileAppHandoff();
+    if (pending) {
+      setMobileHandoff(pending);
+      return;
+    }
+    return setupNativeAuthDeepLinkListener(setProcessingNativeAuth);
+  }, []);
+
+  if (mobileHandoff) {
+    return (
+      <MobileAppHandoffScreen
+        handoff={mobileHandoff}
+        onContinueInBrowser={() => {
+          dismissMobileAppHandoff();
+          setMobileHandoff(null);
+        }}
+      />
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
       <PresenceTracker />
+      {processingNativeAuth && (
+        <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="display text-xl text-ink">Signing you in to Bondoo…</p>
+        </div>
+      )}
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { setPresenceOnline } from "@/lib/presence-store";
+import { getPendingMobileAppHandoff } from "@/lib/mobile-auth";
 
 /**
  * Global online-presence tracker. Mounts once (client-only) and joins the
@@ -9,12 +10,15 @@ import { setPresenceOnline } from "@/lib/presence-store";
  */
 export function PresenceTracker() {
   useEffect(() => {
+    if (getPendingMobileAppHandoff()) return;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let currentUserId: string | null = null;
     let cancelled = false;
 
     const join = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const uid = session?.user?.id ?? null;
       if (cancelled) return;
       if (uid === currentUserId) return;
@@ -34,10 +38,7 @@ export function PresenceTracker() {
         config: { presence: { key: uid } },
       });
       const compute = () => {
-        const state = ch.presenceState() as Record<
-          string,
-          Array<{ userId?: string }>
-        >;
+        const state = ch.presenceState() as Record<string, Array<{ userId?: string }>>;
         const next = new Set<string>();
         for (const [key, arr] of Object.entries(state)) {
           if (key) next.add(key);
