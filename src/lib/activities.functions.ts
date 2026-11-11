@@ -42,9 +42,7 @@ export type ActivityRow = {
   location_name: string | null;
   location_lat: number | null;
   location_lng: number | null;
-  city: string | null;
-  latitude: number | null;
-  longitude: number | null;
+  city?: string | null;
   spots_total: number;
   spots_filled: number;
   distance_hint: string | null;
@@ -69,20 +67,9 @@ export const listActivities = createServerFn({ method: "GET" })
     let query = supabase
       .from("activities")
       .select(
-        "id, host_id, title, category, emoji, starts_at, location_name, location_lat, location_lng, city, latitude, longitude, spots_total, spots_filled, distance_hint, created_at",
+        "id, host_id, title, category, emoji, starts_at, location_name, location_lat, location_lng, spots_total, spots_filled, distance_hint, created_at",
       )
       .eq("status", "active");
-
-    const targetCity = data?.city?.trim();
-    const isAllCities =
-      !targetCity ||
-      targetCity.toLowerCase() === "all cities" ||
-      targetCity.toLowerCase() === "all";
-
-    // If city is specified and user explicitly wants to filter by city name
-    if (!isAllCities && (!data?.latitude || !data?.longitude)) {
-      query = query.ilike("city", `%${targetCity}%`);
-    }
 
     query = query.order("created_at", { ascending: false });
 
@@ -96,22 +83,13 @@ export const listActivities = createServerFn({ method: "GET" })
     const userLng = data?.longitude;
     const maxRadius = data?.radiusKm ?? DEFAULT_RADIUS_KM;
 
-    if (userLat != null && userLng != null && !isAllCities) {
+    if (userLat != null && userLng != null) {
       rows = rawRows.filter((r) => {
-        const rowLat = r.latitude ?? r.location_lat;
-        const rowLng = r.longitude ?? r.location_lng;
-        if (rowLat != null && rowLng != null) {
-          const dist = haversineDistance(userLat, userLng, rowLat, rowLng);
+        if (r.location_lat != null && r.location_lng != null) {
+          const dist = haversineDistance(userLat, userLng, r.location_lat, r.location_lng);
           return dist <= maxRadius;
         }
-        // Fallback for posts without coordinates: check city match
-        if (r.city && targetCity) {
-          return (
-            r.city.toLowerCase().includes(targetCity.toLowerCase()) ||
-            targetCity.toLowerCase().includes(r.city.toLowerCase())
-          );
-        }
-        return false;
+        return true;
       });
     }
 
@@ -124,16 +102,14 @@ export const listActivities = createServerFn({ method: "GET" })
       .in("id", hostIds);
 
     const { batchGetSignedAvatarUrls } = await import("@/lib/avatar.server");
-    const avatarMap = await batchGetSignedAvatarUrls(
-      (profiles ?? []).map((p) => p.avatar_path),
-    );
+    const avatarMap = await batchGetSignedAvatarUrls((profiles ?? []).map((p) => p.avatar_path));
 
     const pmap = new Map(
       (profiles ?? []).map((p) => [
         p.id,
         {
           ...p,
-          avatar_url: p.avatar_path ? avatarMap.get(p.avatar_path) ?? null : null,
+          avatar_url: p.avatar_path ? (avatarMap.get(p.avatar_path) ?? null) : null,
         },
       ]),
     );
@@ -141,8 +117,6 @@ export const listActivities = createServerFn({ method: "GET" })
     return rows.map((r) => {
       const cat = r.category as (typeof CATEGORIES)[number];
       const p = pmap.get(r.host_id);
-      const lat = r.latitude ?? r.location_lat ?? null;
-      const lng = r.longitude ?? r.location_lng ?? null;
       return {
         id: r.id,
         host_id: r.host_id,
@@ -154,11 +128,9 @@ export const listActivities = createServerFn({ method: "GET" })
         emoji: r.emoji || CATEGORY_EMOJI[cat],
         starts_at: r.starts_at,
         location_name: r.location_name,
-        location_lat: lat,
-        location_lng: lng,
-        city: r.city ?? null,
-        latitude: lat,
-        longitude: lng,
+        location_lat: r.location_lat ?? null,
+        location_lng: r.location_lng ?? null,
+        city: null,
         spots_total: r.spots_total,
         spots_filled: r.spots_filled,
         distance_hint: r.distance_hint,
@@ -178,9 +150,6 @@ export const createActivity = createServerFn({ method: "POST" })
         location_name: z.string().trim().max(120).optional().nullable(),
         location_lat: z.number().min(-90).max(90).optional().nullable(),
         location_lng: z.number().min(-180).max(180).optional().nullable(),
-        city: z.string().trim().max(100).optional().nullable(),
-        latitude: z.number().min(-90).max(90).optional().nullable(),
-        longitude: z.number().min(-180).max(180).optional().nullable(),
         spots_total: z.number().int().min(2).max(20).optional(),
       })
       .parse(input),
@@ -189,8 +158,6 @@ export const createActivity = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const starts = new Date(data.starts_at);
     if (Number.isNaN(starts.getTime())) throw new Error("Invalid start time.");
-    const lat = data.latitude ?? data.location_lat ?? null;
-    const lng = data.longitude ?? data.location_lng ?? null;
     const { data: row, error } = await supabase
       .from("activities")
       .insert({
@@ -200,11 +167,8 @@ export const createActivity = createServerFn({ method: "POST" })
         emoji: CATEGORY_EMOJI[data.category],
         starts_at: starts.toISOString(),
         location_name: data.location_name || null,
-        location_lat: lat,
-        location_lng: lng,
-        city: data.city ? data.city.trim() : null,
-        latitude: lat,
-        longitude: lng,
+        location_lat: data.location_lat ?? null,
+        location_lng: data.location_lng ?? null,
         spots_total: data.spots_total ?? 4,
       })
       .select("id")
@@ -215,9 +179,7 @@ export const createActivity = createServerFn({ method: "POST" })
 
 export const cancelActivity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
-    z.object({ activityId: z.string().uuid() }).parse(input),
-  )
+  .validator((input: unknown) => z.object({ activityId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { error } = await supabase
@@ -241,9 +203,6 @@ export const updateActivity = createServerFn({ method: "POST" })
         location_name: z.string().trim().max(120).optional().nullable(),
         location_lat: z.number().min(-90).max(90).optional().nullable(),
         location_lng: z.number().min(-180).max(180).optional().nullable(),
-        city: z.string().trim().max(100).optional().nullable(),
-        latitude: z.number().min(-90).max(90).optional().nullable(),
-        longitude: z.number().min(-180).max(180).optional().nullable(),
         spots_total: z.number().int().min(2).max(20).optional(),
       })
       .parse(input),
@@ -252,8 +211,6 @@ export const updateActivity = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const starts = new Date(data.starts_at);
     if (Number.isNaN(starts.getTime())) throw new Error("Invalid start time.");
-    const lat = data.latitude ?? data.location_lat;
-    const lng = data.longitude ?? data.location_lng;
     const { error } = await supabase
       .from("activities")
       .update({
@@ -262,9 +219,8 @@ export const updateActivity = createServerFn({ method: "POST" })
         emoji: CATEGORY_EMOJI[data.category],
         starts_at: starts.toISOString(),
         location_name: data.location_name || null,
-        ...(data.city !== undefined ? { city: data.city ? data.city.trim() : null } : {}),
-        ...(lat !== undefined ? { location_lat: lat, latitude: lat } : {}),
-        ...(lng !== undefined ? { location_lng: lng, longitude: lng } : {}),
+        ...(data.location_lat !== undefined ? { location_lat: data.location_lat } : {}),
+        ...(data.location_lng !== undefined ? { location_lng: data.location_lng } : {}),
         ...(data.spots_total !== undefined ? { spots_total: data.spots_total } : {}),
       })
       .eq("id", data.activityId)
@@ -275,9 +231,7 @@ export const updateActivity = createServerFn({ method: "POST" })
 
 export const deleteActivity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
-    z.object({ activityId: z.string().uuid() }).parse(input),
-  )
+  .validator((input: unknown) => z.object({ activityId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { error } = await supabase
@@ -288,4 +242,3 @@ export const deleteActivity = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
-

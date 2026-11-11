@@ -24,14 +24,8 @@ import {
   ALL_CITIES_LABEL,
   DEFAULT_FALLBACK_CITY,
   DEFAULT_RADIUS_KM,
-  type Coordinates,
 } from "@/lib/location";
-import {
-  getSavedTheme,
-  saveTheme,
-  applyThemeToDocument,
-  type ThemeMode,
-} from "@/lib/theme";
+import { getSavedTheme, saveTheme, applyThemeToDocument, type ThemeMode } from "@/lib/theme";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -39,8 +33,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       { title: "Nearby activities · Bondoo" },
       {
         name: "description",
-        content:
-          "Discover walks, coffee, and reading circles happening near you.",
+        content: "Discover walks, coffee, and reading circles happening near you.",
       },
     ],
   }),
@@ -138,13 +131,11 @@ function Dashboard() {
   const [nearMe, setNearMe] = useState(false);
 
   // Location & City filtering state
-  const [selectedCity, setSelectedCity] = useState<string>(() => getSavedCity() || DEFAULT_FALLBACK_CITY);
-  const [detectedCity, setDetectedCity] = useState<string>(DEFAULT_FALLBACK_CITY);
-  const [cityCoords, setCityCoords] = useState<Coordinates | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string>(
+    () => getSavedCity() || DEFAULT_FALLBACK_CITY,
+  );
   const [isDetectingCity, setIsDetectingCity] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
-  const [draftCity, setDraftCity] = useState("");
-  const [editCity, setEditCity] = useState("");
 
   // Gen Z Theme mode toggle state (editorial vs genz)
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getSavedTheme());
@@ -184,8 +175,8 @@ function Dashboard() {
       fetchActivities({
         data: {
           city: selectedCity === ALL_CITIES_LABEL ? undefined : selectedCity,
-          latitude: myLoc?.lat ?? undefined,
-          longitude: myLoc?.lng ?? undefined,
+          latitude: selectedCity === ALL_CITIES_LABEL ? undefined : (myLoc?.lat ?? undefined),
+          longitude: selectedCity === ALL_CITIES_LABEL ? undefined : (myLoc?.lng ?? undefined),
           radiusKm: DEFAULT_RADIUS_KM,
         },
       }),
@@ -204,16 +195,13 @@ function Dashboard() {
       const saved = getSavedCity();
       const savedCoords = getSavedCoordinates();
       if (savedCoords) {
-        setCityCoords(savedCoords);
         setMyLoc({ lat: savedCoords.latitude, lng: savedCoords.longitude });
       }
       if (saved) {
         setSelectedCity(saved);
-        setDetectedCity(saved);
         if (!savedCoords) {
           const fallbackCoords = getCityCoordinates(saved);
           if (fallbackCoords) {
-            setCityCoords(fallbackCoords);
             setMyLoc({ lat: fallbackCoords.latitude, lng: fallbackCoords.longitude });
           }
         }
@@ -227,9 +215,7 @@ function Dashboard() {
           if (!saved) {
             setSelectedCity(res.city);
           }
-          setDetectedCity(res.city);
           if (res.latitude != null && res.longitude != null) {
-            setCityCoords({ latitude: res.latitude, longitude: res.longitude });
             setMyLoc({ lat: res.latitude, lng: res.longitude });
           }
         }
@@ -254,10 +240,8 @@ function Dashboard() {
     try {
       const res = await resolveUserCity(profile, true);
       setSelectedCity(res.city);
-      setDetectedCity(res.city);
       saveSelectedCity(res.city);
       if (res.latitude != null && res.longitude != null) {
-        setCityCoords({ latitude: res.latitude, longitude: res.longitude });
         setMyLoc({ lat: res.latitude, lng: res.longitude });
       }
       qc.invalidateQueries({ queryKey: ["activities"] });
@@ -271,7 +255,6 @@ function Dashboard() {
     saveSelectedCity(city);
     const coords = getCityCoordinates(city);
     if (coords) {
-      setCityCoords(coords);
       setMyLoc({ lat: coords.latitude, lng: coords.longitude });
     }
     qc.invalidateQueries({ queryKey: ["activities"] });
@@ -302,10 +285,8 @@ function Dashboard() {
     const withDist = base
       .map((a) => {
         let distKm: number | null = null;
-        const actLat = a.latitude ?? a.location_lat;
-        const actLng = a.longitude ?? a.location_lng;
-        if (myLoc && actLat != null && actLng != null) {
-          distKm = haversine(myLoc.lat, myLoc.lng, actLat, actLng);
+        if (myLoc && a.location_lat != null && a.location_lng != null) {
+          distKm = haversine(myLoc.lat, myLoc.lng, a.location_lat, a.location_lng);
         }
         const isMatch = myInterests.has(a.category.toLowerCase());
         return { ...a, __distKm: distKm, __match: isMatch };
@@ -319,16 +300,7 @@ function Dashboard() {
           return a.__distKm <= DEFAULT_RADIUS_KM;
         }
 
-        // If activity doesn't have exact GPS coordinates, match against user's selected city
-        if (a.city && selectedCity) {
-          return (
-            a.city.toLowerCase().includes(selectedCity.toLowerCase()) ||
-            selectedCity.toLowerCase().includes(a.city.toLowerCase())
-          );
-        }
-
-        // Keep post if no city was attached and user has no specific city filter
-        return !selectedCity || selectedCity === ALL_CITIES_LABEL;
+        return true;
       });
 
     // Sort by proximity (nearest to user first within 100km)
@@ -347,22 +319,14 @@ function Dashboard() {
     return withDist;
   }, [activities, cat, myLoc, selectedCity, myInterests]);
 
-  // Sync draft city when opening create dialog
-  useEffect(() => {
-    if (showCreate) {
-      setDraftCity(selectedCity === ALL_CITIES_LABEL ? detectedCity : selectedCity);
-    }
-  }, [showCreate, selectedCity, detectedCity]);
-
   const createMut = useMutation({
     mutationFn: (input: {
       title: string;
       category: Category;
       starts_at: string;
       location_name?: string;
-      city?: string;
-      latitude?: number;
-      longitude?: number;
+      location_lat?: number;
+      location_lng?: number;
     }) => postActivity({ data: input }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activities"] });
@@ -370,7 +334,6 @@ function Dashboard() {
       setDraftWhen("");
       setDraftLocation("");
       setDraftCat("Coffee & Chat");
-      setDraftCity("");
       setShowCreate(false);
       setCat("All");
     },
@@ -378,15 +341,13 @@ function Dashboard() {
 
   function handleCreate() {
     if (!draftTitle.trim() || !draftWhen) return;
-    const finalCity = (draftCity.trim() || (selectedCity !== ALL_CITIES_LABEL ? selectedCity : detectedCity) || DEFAULT_FALLBACK_CITY).trim();
     createMut.mutate({
       title: draftTitle.trim(),
       category: draftCat,
       starts_at: new Date(draftWhen).toISOString(),
       location_name: draftLocation.trim() || undefined,
-      city: finalCity,
-      latitude: myLoc?.lat ?? cityCoords?.latitude ?? undefined,
-      longitude: myLoc?.lng ?? cityCoords?.longitude ?? undefined,
+      location_lat: myLoc?.lat ?? undefined,
+      location_lng: myLoc?.lng ?? undefined,
     });
   }
 
@@ -397,9 +358,8 @@ function Dashboard() {
       category: Category;
       starts_at: string;
       location_name?: string;
-      city?: string;
-      latitude?: number;
-      longitude?: number;
+      location_lat?: number;
+      location_lng?: number;
     }) => editActivity({ data: input }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activities"] });
@@ -424,7 +384,6 @@ function Dashboard() {
     setEditCat(act.category);
     setEditWhen(toLocalDatetimeString(act.starts_at));
     setEditLocation(act.location_name || "");
-    setEditCity(act.city || (selectedCity !== ALL_CITIES_LABEL ? selectedCity : detectedCity) || "");
     setShowEdit(true);
   }
 
@@ -436,7 +395,6 @@ function Dashboard() {
       category: editCat,
       starts_at: new Date(editWhen).toISOString(),
       location_name: editLocation.trim() || undefined,
-      city: editCity.trim() || undefined,
     });
   }
 
@@ -454,7 +412,9 @@ function Dashboard() {
       await navigate({ to: "/messages/$conversationId", params: { conversationId: id } });
       setSelected(null);
     } catch (error) {
-      setChatError(error instanceof Error ? error.message : "Chat could not be opened. Please try again.");
+      setChatError(
+        error instanceof Error ? error.message : "Chat could not be opened. Please try again.",
+      );
     } finally {
       setOpening(false);
     }
@@ -494,11 +454,7 @@ function Dashboard() {
                 ? "bg-[#141828] text-white border border-[#222A40] hover:border-indigo-400/50 shadow-[0_0_12px_rgba(91,104,246,0.2)]"
                 : "bg-paper border border-border hover:border-brand-orange text-ink"
             }`}
-            title={
-              themeMode === "genz"
-                ? "Switch to Editorial Zine Mode"
-                : "Switch to Gen Z Mode"
-            }
+            title={themeMode === "genz" ? "Switch to Editorial Zine Mode" : "Switch to Gen Z Mode"}
           >
             <span className="text-xs">{themeMode === "genz" ? "⚡" : "✨"}</span>
             <span className={themeMode === "genz" ? "text-amber-300 font-semibold" : ""}>
@@ -582,11 +538,7 @@ function Dashboard() {
         </div>
       </header>
 
-      <div
-        className={`max-w-md mx-auto px-6 ${
-          themeMode === "genz" ? "pt-3.5" : "pt-5"
-        }`}
-      >
+      <div className={`max-w-md mx-auto px-6 ${themeMode === "genz" ? "pt-3.5" : "pt-5"}`}>
         {pendingReviews.length > 0 && (
           <button
             onClick={() =>
@@ -640,9 +592,7 @@ function Dashboard() {
                             : "text-[#8E9BB0] hover:text-white"
                         }`
                       : `px-5 py-1.5 text-sm font-medium rounded-full transition cursor-pointer ${
-                          active
-                            ? "bg-ink text-background"
-                            : "text-muted-foreground"
+                          active ? "bg-ink text-background" : "text-muted-foreground"
                         }`
                   }
                 >
@@ -810,9 +760,7 @@ function Dashboard() {
                           </span>
                         )}
                         {a.city && (
-                          <span className="text-[10px] font-medium text-white/60">
-                            📍 {a.city}
-                          </span>
+                          <span className="text-[10px] font-medium text-white/60">📍 {a.city}</span>
                         )}
                       </div>
                       <span className="text-[11px] font-medium text-white/50">
@@ -913,7 +861,11 @@ function Dashboard() {
                             />
                           ) : (
                             <span className="h-5 w-5 rounded-full bg-secondary flex items-center justify-center font-semibold text-[9px] shrink-0">
-                              {a.host_name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
+                              {a.host_name
+                                .split(" ")
+                                .map((s) => s[0])
+                                .join("")
+                                .slice(0, 2)}
                             </span>
                           )}
                           {a.is_mine ? "You" : a.host_name}
@@ -921,9 +873,7 @@ function Dashboard() {
                         {a.host_trust !== null && (
                           <>
                             <span className="text-muted-foreground">·</span>
-                            <span className="text-primary font-medium">
-                              Trust {a.host_trust}
-                            </span>
+                            <span className="text-primary font-medium">Trust {a.host_trust}</span>
                           </>
                         )}
                         <span className="text-muted-foreground">·</span>
@@ -962,9 +912,23 @@ function Dashboard() {
                   "radial-gradient(ellipse at 30% 30%, oklch(0.62 0.19 254 / 0.10) 0%, transparent 55%), radial-gradient(ellipse at 70% 70%, oklch(0.76 0.17 60 / 0.14) 0%, transparent 55%)",
               }}
             />
-            <svg className="absolute inset-0 h-full w-full opacity-30" viewBox="0 0 400 440" fill="none">
-              <path d="M0 120 Q 100 80 200 140 T 400 130" stroke="#007AFF" strokeWidth="1.5" fill="none" />
-              <path d="M0 280 Q 120 240 220 300 T 400 290" stroke="#FF9500" strokeWidth="1.5" fill="none" />
+            <svg
+              className="absolute inset-0 h-full w-full opacity-30"
+              viewBox="0 0 400 440"
+              fill="none"
+            >
+              <path
+                d="M0 120 Q 100 80 200 140 T 400 130"
+                stroke="#007AFF"
+                strokeWidth="1.5"
+                fill="none"
+              />
+              <path
+                d="M0 280 Q 120 240 220 300 T 400 290"
+                stroke="#FF9500"
+                strokeWidth="1.5"
+                fill="none"
+              />
             </svg>
             {filtered.map((a, i) => (
               <button
@@ -977,10 +941,10 @@ function Dashboard() {
               </button>
             ))}
             <div className="absolute bottom-4 left-4 right-4 bg-background/95 backdrop-blur rounded-2xl px-4 py-3 border border-border">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Showing</p>
-              <p className="display text-lg text-ink leading-tight">
-                {filtered.length} nearby
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                Showing
               </p>
+              <p className="display text-lg text-ink leading-tight">{filtered.length} nearby</p>
             </div>
           </div>
         )}
@@ -1082,7 +1046,10 @@ function Dashboard() {
 
               <div>
                 <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
-                  Where <span className="normal-case tracking-normal text-muted-foreground/70">(optional, public place)</span>
+                  Where{" "}
+                  <span className="normal-case tracking-normal text-muted-foreground/70">
+                    (optional, public place)
+                  </span>
                 </label>
                 <input
                   value={draftLocation}
@@ -1091,41 +1058,10 @@ function Dashboard() {
                   className="mt-2 w-full rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
                 />
               </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
-                    City
-                  </label>
-                  <span className="text-[10px] text-muted-foreground">
-                    Auto-attached to feed
-                  </span>
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    value={draftCity}
-                    onChange={(e) => setDraftCity(e.target.value)}
-                    placeholder="e.g. Delhi, Patna, Bengaluru…"
-                    className="flex-1 rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
-                  />
-                  {detectedCity && (
-                    <button
-                      type="button"
-                      onClick={() => setDraftCity(detectedCity)}
-                      className="px-3 py-3 rounded-2xl border border-border bg-paper text-xs font-semibold text-primary hover:bg-surface transition shrink-0"
-                      title="Reset to detected city"
-                    >
-                      📍 {detectedCity}
-                    </button>
-                  )}
-                </div>
-              </div>
             </div>
 
             {createMut.isError && (
-              <p className="mt-3 text-xs text-destructive">
-                {(createMut.error as Error).message}
-              </p>
+              <p className="mt-3 text-xs text-destructive">{(createMut.error as Error).message}</p>
             )}
 
             <div className="mt-6 flex gap-2">
@@ -1220,7 +1156,10 @@ function Dashboard() {
 
               <div>
                 <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
-                  Where <span className="normal-case tracking-normal text-muted-foreground/70">(optional, public place)</span>
+                  Where{" "}
+                  <span className="normal-case tracking-normal text-muted-foreground/70">
+                    (optional, public place)
+                  </span>
                 </label>
                 <input
                   value={editLocation}
@@ -1229,24 +1168,10 @@ function Dashboard() {
                   className="mt-2 w-full rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
                 />
               </div>
-
-              <div>
-                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
-                  City
-                </label>
-                <input
-                  value={editCity}
-                  onChange={(e) => setEditCity(e.target.value)}
-                  placeholder="e.g. Delhi, Patna…"
-                  className="mt-2 w-full rounded-2xl border border-border bg-paper px-4 py-3 text-sm text-ink outline-none focus:border-primary"
-                />
-              </div>
             </div>
 
             {updateMut.isError && (
-              <p className="mt-3 text-xs text-destructive">
-                {(updateMut.error as Error).message}
-              </p>
+              <p className="mt-3 text-xs text-destructive">{(updateMut.error as Error).message}</p>
             )}
 
             <div className="mt-6 flex gap-2">
@@ -1289,12 +1214,11 @@ function Dashboard() {
                 <p className="text-[10px] uppercase tracking-[0.22em] text-brand-orange font-semibold">
                   {selected.category} · {formatWhen(selected.starts_at)}
                 </p>
-                <h2 className="display text-2xl text-ink leading-tight mt-1">
-                  {selected.title}
-                </h2>
+                <h2 className="display text-2xl text-ink leading-tight mt-1">{selected.title}</h2>
                 {selected.city && (
                   <p className="text-xs text-brand-orange font-semibold mt-1">
-                    📍 {selected.city}{selected.location_name ? ` · ${selected.location_name}` : ""}
+                    📍 {selected.city}
+                    {selected.location_name ? ` · ${selected.location_name}` : ""}
                   </p>
                 )}
                 {!selected.city && selected.location_name && (
@@ -1328,7 +1252,10 @@ function Dashboard() {
             </ul>
 
             {chatError && (
-              <p role="alert" className="mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <p
+                role="alert"
+                className="mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              >
                 {chatError}
               </p>
             )}
@@ -1336,9 +1263,7 @@ function Dashboard() {
             {selected.is_mine ? (
               confirmingDelete ? (
                 <div className="mt-6 rounded-2xl bg-destructive/10 border border-destructive/20 p-4 text-center">
-                  <p className="text-sm font-semibold text-destructive">
-                    Delete this activity?
-                  </p>
+                  <p className="text-sm font-semibold text-destructive">Delete this activity?</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     It will be removed from nearby activity feeds.
                   </p>
