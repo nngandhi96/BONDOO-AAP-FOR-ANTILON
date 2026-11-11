@@ -140,7 +140,7 @@ function AuthScreen() {
       }
     );
 
-    // 2. Listen for native Android deep link events (e.g. bondoo://auth?code=...)
+    // 2. Listen for native Android deep link events (e.g. bondoo://auth?code=... or bondoo://auth#access_token=...)
     let appUrlListenerCleanup: (() => void) | null = null;
     if (isNativeMobileApp()) {
       App.addListener("appUrlOpen", async (event) => {
@@ -148,18 +148,48 @@ function AuthScreen() {
           const rawUrl = event.url;
           if (!rawUrl) return;
           const dummyOrigin = "https://bondoo-connect-main.vercel.app";
-          const parsed = new URL(rawUrl.replace("bondoo://auth", `${dummyOrigin}/auth`));
+          const normalized = rawUrl.startsWith("bondoo://")
+            ? rawUrl.replace("bondoo://auth", `${dummyOrigin}/auth`).replace("bondoo://", `${dummyOrigin}/`)
+            : rawUrl;
+          const parsed = new URL(normalized);
+
           let deepCode = parsed.searchParams.get("code");
-          if (!deepCode && parsed.hash) {
+          let accessToken = parsed.searchParams.get("access_token");
+          let refreshToken = parsed.searchParams.get("refresh_token");
+
+          if (parsed.hash) {
             const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
-            deepCode = hashParams.get("code");
+            if (!deepCode) deepCode = hashParams.get("code");
+            if (!accessToken) accessToken = hashParams.get("access_token");
+            if (!refreshToken) refreshToken = hashParams.get("refresh_token");
           }
+
           const errDesc = parsed.searchParams.get("error_description") || parsed.searchParams.get("error");
           if (errDesc) {
             setLoading(false);
             setError(decodeURIComponent(errDesc));
             return;
           }
+
+          // Case A: Access & refresh tokens received directly
+          if (accessToken && refreshToken) {
+            setLoading(true);
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (!sessionError && sessionData.session?.user) {
+              await syncAgeConsent(sessionData.session.user.id);
+              window.location.replace(safeNext(next));
+              return;
+            } else if (sessionError) {
+              setLoading(false);
+              setError(getAuthErrorMessage(sessionError));
+              return;
+            }
+          }
+
+          // Case B: Authorization code received
           if (deepCode) {
             setLoading(true);
             const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(deepCode);
@@ -204,14 +234,6 @@ function AuthScreen() {
         : null);
 
     if (code) {
-      // If user landed on mobile browser after Google OAuth, forward to native app
-      if (typeof window !== "undefined" && !isNativeMobileApp()) {
-        const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (isMobileBrowser) {
-          window.location.href = `bondoo://auth?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`;
-        }
-      }
-
       setLoading(true);
       supabase.auth
         .exchangeCodeForSession(code)
@@ -228,6 +250,23 @@ function AuthScreen() {
               return;
             }
             await syncAgeConsent(data.session.user.id);
+
+            // If user is on a mobile browser outside the native app, immediately transfer the authenticated session into the native app
+            if (typeof window !== "undefined" && !isNativeMobileApp()) {
+              const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+              const token = data.session.access_token;
+              const rtoken = data.session.refresh_token;
+
+              if (isMobileBrowser && token && rtoken) {
+                const intentUrl = `intent://auth?access_token=${encodeURIComponent(token)}&refresh_token=${encodeURIComponent(rtoken)}&next=${encodeURIComponent(next)}#Intent;scheme=bondoo;package=com.bondoo.connect;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
+                try {
+                  window.location.href = intentUrl;
+                } catch {
+                  window.location.href = `bondoo://auth?access_token=${encodeURIComponent(token)}&refresh_token=${encodeURIComponent(rtoken)}&next=${encodeURIComponent(next)}`;
+                }
+              }
+            }
+
             window.location.replace(safeNext(next));
           } else {
             setLoading(false);
@@ -543,7 +582,13 @@ function AuthScreen() {
     }
     setGoogleLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/auth?next=${encodeURIComponent(next)}`;
+      const isNative = isNativeMobileApp();
+      // In native Android/Capacitor app, redirect to custom scheme bondoo://auth
+      // so Chrome Custom Tabs immediately closes upon Google OAuth completion and returns to app!
+      const redirectUrl = isNative
+        ? `bondoo://auth?next=${encodeURIComponent(next)}`
+        : `${window.location.origin}/auth?next=${encodeURIComponent(next)}`;
+
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {

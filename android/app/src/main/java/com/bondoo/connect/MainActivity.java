@@ -32,15 +32,26 @@ public class MainActivity extends BridgeActivity {
         setupAuthInterception();
     }
 
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (this.bridge != null) {
+            this.bridge.onNewIntent(intent);
+        }
+    }
+
     private void openInCustomTabs(Uri uri) {
         try {
             CustomTabsIntent customTabs = new CustomTabsIntent.Builder()
                 .setShowTitle(true)
                 .build();
+            customTabs.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             customTabs.launchUrl(this, uri);
         } catch (Exception e) {
             try {
                 Intent browserIntent = new Intent(Intent.ACTION_VIEW, uri);
+                browserIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 startActivity(browserIntent);
             } catch (Exception ignored) {}
         }

@@ -6,7 +6,12 @@ import { Capacitor } from "@capacitor/core";
  */
 export function isNativeMobileApp(): boolean {
   if (typeof window === "undefined") return false;
-  return Capacitor.isNativePlatform();
+  return (
+    Capacitor.isNativePlatform() ||
+    !!(window as unknown as { BondooNativeAuth?: unknown }).BondooNativeAuth ||
+    (typeof (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform === "function" &&
+      !!(window as unknown as { Capacitor?: { isNativePlatform: () => boolean } }).Capacitor?.isNativePlatform())
+  );
 }
 
 /**
