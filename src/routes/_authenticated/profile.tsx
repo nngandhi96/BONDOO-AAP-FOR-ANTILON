@@ -14,7 +14,8 @@ import { SelfieCameraModal } from "@/components/selfie-camera-modal";
 import { PhoneOtpModal } from "@/components/phone-otp-modal";
 import { getMyAdminRole } from "@/lib/admin.functions";
 import { usePlatform } from "@/lib/platform";
-import { ShieldCheck, Monitor, ArrowRight } from "lucide-react";
+import { ShieldCheck, Monitor, ArrowRight, Share2 } from "lucide-react";
+import { InviteModal } from "@/components/invite-modal";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -135,6 +136,7 @@ function Profile() {
   const [editing, setEditing] = useState(false);
   const [showSelfieModal, setShowSelfieModal] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [neighbourhood, setNeighbourhood] = useState("");
@@ -507,6 +509,30 @@ function Profile() {
           </article>
         )}
 
+        {/* Invite Friends & Share Card */}
+        <article className="p-5 rounded-3xl bg-paper border border-border space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🎁</span>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-brand-orange font-semibold">
+                Share Bondoo
+              </p>
+              <h3 className="display text-lg text-ink font-semibold">Invite your friends</h3>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Know people looking for walking, coffee, or study buddies? Share Bondoo on WhatsApp, Instagram, or Snapchat.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowInviteModal(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-ink text-background font-semibold text-xs hover:bg-ink/90 active:scale-[0.99] transition cursor-pointer shadow-sm"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>Invite on WhatsApp / Social Media</span>
+          </button>
+        </article>
+
         <button
           onClick={handleSignOut}
           className="w-full text-sm text-muted-foreground py-2"
@@ -591,6 +617,10 @@ function Profile() {
       <PhoneOtpModal
         open={showPhoneModal}
         onClose={() => setShowPhoneModal(false)}
+      />
+      <InviteModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
       />
     </main>
   );

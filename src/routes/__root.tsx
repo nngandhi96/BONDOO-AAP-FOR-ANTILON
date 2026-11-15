@@ -8,6 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
+import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -177,6 +178,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <Toaster richColors position="top-center" closeButton />
       <PresenceTracker />
       {processingNativeAuth && (
         <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center gap-3 px-6 text-center">

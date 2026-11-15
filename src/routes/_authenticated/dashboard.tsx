@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { Share2 } from "lucide-react";
 import { BondooEyes } from "@/components/bondoo-logo";
 import { getMyProfile } from "@/lib/profile.functions";
 import {
@@ -15,6 +16,7 @@ import { getOrCreateConversation } from "@/lib/chat.functions";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { listMeetupsAwaitingMyReview } from "@/lib/reviews.functions";
 import { CitySelectorModal } from "@/components/city-selector-modal";
+import { InviteModal } from "@/components/invite-modal";
 import {
   resolveUserCity,
   getSavedCity,
@@ -136,6 +138,19 @@ function Dashboard() {
   );
   const [isDetectingCity, setIsDetectingCity] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
+
+  // Invite & Share modal state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteModalData, setInviteModalData] = useState<{
+    shareUrl?: string;
+    title?: string;
+    description?: string;
+  }>({});
+
+  function handleOpenInvite(custom?: { shareUrl?: string; title?: string; description?: string }) {
+    setInviteModalData(custom || {});
+    setShowInviteModal(true);
+  }
 
   // Gen Z Theme mode toggle state (editorial vs genz)
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getSavedTheme());
@@ -522,6 +537,19 @@ function Dashboard() {
             )}
           </div>
           <div className="shrink-0 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleOpenInvite()}
+              className={`h-11 px-3 rounded-full flex items-center gap-1.5 border transition active:scale-95 cursor-pointer ${
+                themeMode === "genz"
+                  ? "bg-[#141828] border-indigo-500/30 text-white hover:border-indigo-400/60 shadow-[0_0_12px_rgba(91,104,246,0.18)]"
+                  : "bg-paper border-border text-ink hover:border-brand-orange shadow-sm"
+              }`}
+              title="Invite Friends to Bondoo"
+            >
+              <span className="text-sm">🎁</span>
+              <span className="text-xs font-bold hidden xs:inline sm:inline">Invite</span>
+            </button>
             <NotificationsBell />
             <Link
               to="/profile"
@@ -702,18 +730,26 @@ function Dashboard() {
                     ? "Be the first to drop a plan and set the vibe."
                     : `No moves planned in ${selectedCity} yet? Drop a plan and set the vibe ⚡`}
                 </p>
-                {selectedCity !== ALL_CITIES_LABEL && (
-                  <div className="mt-3.5">
+                <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenInvite()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-indigo-500/40 bg-indigo-500/15 text-xs font-bold text-white hover:bg-indigo-500/25 transition active:scale-95 cursor-pointer shadow-sm"
+                  >
+                    <span>🎁</span>
+                    <span>Invite Friends on WhatsApp / Insta</span>
+                  </button>
+                  {selectedCity !== ALL_CITIES_LABEL && (
                     <button
                       type="button"
                       onClick={() => handleSelectCity(ALL_CITIES_LABEL)}
-                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-[#222A40] bg-[#141828] text-xs font-semibold text-[#D1D5DB] hover:bg-[#1A2035] hover:text-white transition active:scale-95 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#222A40] bg-[#141828] text-xs font-semibold text-[#D1D5DB] hover:bg-[#1A2035] hover:text-white transition active:scale-95 cursor-pointer"
                     >
                       <span>🌐</span>
                       <span>Explore All Cities</span>
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ) : (
               <div className="mt-10 text-center">
@@ -727,15 +763,24 @@ function Dashboard() {
                     ? "Be the first — post an activity below."
                     : `No activities found within 100 km of ${selectedCity}. Be the first to post, or switch cities.`}
                 </p>
-                {selectedCity !== ALL_CITIES_LABEL && (
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleSelectCity(ALL_CITIES_LABEL)}
-                    className="mt-4 px-4 py-2 rounded-full border border-border bg-paper text-xs font-semibold text-primary hover:bg-surface transition shadow-sm"
+                    onClick={() => handleOpenInvite()}
+                    className="px-4 py-2 rounded-full border border-border bg-paper text-xs font-semibold text-ink hover:border-brand-orange hover:bg-surface transition shadow-sm cursor-pointer"
                   >
-                    🌐 View posts from All Cities
+                    🎁 Invite friends to start a move
                   </button>
-                )}
+                  {selectedCity !== ALL_CITIES_LABEL && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectCity(ALL_CITIES_LABEL)}
+                      className="px-4 py-2 rounded-full border border-border bg-paper text-xs font-semibold text-primary hover:bg-surface transition shadow-sm"
+                    >
+                      🌐 View posts from All Cities
+                    </button>
+                  )}
+                </div>
               </div>
             )
           ) : themeMode === "genz" ? (
@@ -1251,6 +1296,24 @@ function Dashboard() {
               <li>🚫 Bondoo is not a dating app — keep it friendly.</li>
             </ul>
 
+            {/* Quick Share Activity CTA */}
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() =>
+                  handleOpenInvite({
+                    title: `Check out this plan on Bondoo: "${selected.title}"! ⚡`,
+                    description: `${selected.emoji} ${selected.category} · ${formatWhen(selected.starts_at)} in ${selected.city || selected.location_name || "Delhi"}. Hosted by ${selected.is_mine ? "me" : selected.host_name}.`,
+                    shareUrl: "https://www.bondooconnect.com",
+                  })
+                }
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border border-primary/30 bg-primary/10 text-primary font-bold text-xs hover:bg-primary/20 active:scale-[0.99] transition cursor-pointer"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Share this plan on WhatsApp / Insta</span>
+              </button>
+            </div>
+
             {chatError && (
               <p
                 role="alert"
@@ -1347,6 +1410,15 @@ function Dashboard() {
         onSelectCity={handleSelectCity}
         onDetectLocation={handleDetectLocation}
         isDetecting={isDetectingCity}
+      />
+
+      <InviteModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        themeMode={themeMode}
+        shareUrl={inviteModalData.shareUrl}
+        title={inviteModalData.title}
+        description={inviteModalData.description}
       />
     </main>
   );
