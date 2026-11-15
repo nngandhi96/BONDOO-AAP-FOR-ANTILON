@@ -23,6 +23,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="bondoo-connect-main.vercel.app" />
+                <data android:scheme="https" android:host="www.bondooconnect.com" />
+                <data android:scheme="https" android:host="bondooconnect.com" />
             </intent-filter>
             <!-- Custom scheme for seamless OAuth callback into native app without password prompt -->
             <intent-filter>

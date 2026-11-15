@@ -44,7 +44,11 @@ async function handleIncomingDeepLink(
   if (!hasAuthPayload) {
     // Handle standard deep link navigation into app routes (e.g., /meetup/...)
     try {
-      if (rawUrl.startsWith("https://bondoo-connect-main.vercel.app/")) {
+      if (
+        rawUrl.startsWith("https://bondoo-connect-main.vercel.app/") ||
+        rawUrl.startsWith("https://www.bondooconnect.com/") ||
+        rawUrl.startsWith("https://bondooconnect.com/")
+      ) {
         const parsed = new URL(rawUrl);
         const dest = `${parsed.pathname}${parsed.search}${parsed.hash}`;
         if (dest && dest !== "/" && dest !== window.location.pathname) {

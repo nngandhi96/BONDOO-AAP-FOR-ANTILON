@@ -124,7 +124,9 @@ public class MainActivity extends BridgeActivity {
                     if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
                         if (host != null && (
                             host.equals("bondoo-connect-main.vercel.app") ||
-                            host.endsWith(".bondoo-connect-main.vercel.app")
+                            host.endsWith(".bondoo-connect-main.vercel.app") ||
+                            host.equals("bondooconnect.com") ||
+                            host.endsWith(".bondooconnect.com")
                         )) {
                             return false;
                         }
