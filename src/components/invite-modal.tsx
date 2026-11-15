@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check, Share2, Sparkles, X } from "lucide-react";
+import { Copy, Check, Share2, Sparkles, X, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import type { ThemeMode } from "@/lib/theme";
 
@@ -12,33 +12,37 @@ interface InviteModalProps {
   description?: string;
 }
 
-const DEFAULT_SHARE_URL = "https://www.bondooconnect.com";
+export const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.bondoo.connect";
+export const WEB_URL = "https://www.bondooconnect.com";
+
 const DEFAULT_TITLE = "Join me on Bondoo! ⚡";
 const DEFAULT_TEXT =
-  "Bondoo connects verified people nearby for walks, coffee, and study sessions in public spots. No dating agenda, just genuine company! ☕🌳";
+  "Bondoo connects verified people nearby for walks, coffee, and study in public spots. No dating agenda, just genuine company! ☕🌳";
 
 export function InviteModal({
   isOpen,
   onClose,
   themeMode = "zine",
-  shareUrl = DEFAULT_SHARE_URL,
+  shareUrl = WEB_URL,
   title = DEFAULT_TITLE,
   description = DEFAULT_TEXT,
 }: InviteModalProps) {
-  const [copied, setCopied] = useState(false);
+  const [copiedType, setCopiedType] = useState<"playstore" | "web" | null>(null);
 
   if (!isOpen) return null;
 
   const isGenZ = themeMode === "genz";
-  const fullShareText = `${title}\n\n${description}\n\nCheck it out here: ${shareUrl}`;
 
-  async function handleCopy() {
+  // Comprehensive invite text that prioritizes direct Play Store install
+  const fullShareText = `${title}\n\n${description}\n\n📲 Direct Play Store Download:\n${PLAY_STORE_URL}\n\n🌐 Or join on Web:\n${shareUrl}`;
+
+  async function copyToClipboard(text: string, type: "playstore" | "web") {
     try {
       if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(shareUrl);
+        await navigator.clipboard.writeText(text);
       } else {
         const textArea = document.createElement("textarea");
-        textArea.value = shareUrl;
+        textArea.value = text;
         textArea.style.position = "fixed";
         textArea.style.left = "-9999px";
         document.body.appendChild(textArea);
@@ -47,24 +51,24 @@ export function InviteModal({
         document.execCommand("copy");
         document.body.removeChild(textArea);
       }
-      setCopied(true);
-      toast.success("Link copied to clipboard!");
-      setTimeout(() => setCopied(false), 2500);
+      setCopiedType(type);
+      toast.success(type === "playstore" ? "Play Store link copied!" : "Web link copied!");
+      setTimeout(() => setCopiedType(null), 2500);
     } catch {
       toast.error("Could not copy link automatically");
     }
   }
 
   function handleWhatsApp() {
-    const text = encodeURIComponent(`${title}\n\n${description}\n\n${shareUrl}`);
+    const text = encodeURIComponent(fullShareText);
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
-    toast.success("Opening WhatsApp…");
+    toast.success("Opening WhatsApp with Play Store link…");
   }
 
   async function handleInstagram() {
     try {
       await navigator.clipboard.writeText(fullShareText);
-      toast.success("Invite copied! Paste it in your Instagram Chat or Story.");
+      toast.success("Play Store invite copied! Paste it in Instagram Chat or Story.");
     } catch {
       /* ignore */
     }
@@ -73,8 +77,8 @@ export function InviteModal({
       try {
         await navigator.share({
           title,
-          text: description,
-          url: shareUrl,
+          text: fullShareText,
+          url: PLAY_STORE_URL,
         });
         return;
       } catch (err) {
@@ -82,7 +86,6 @@ export function InviteModal({
       }
     }
 
-    // Try app link or web fallback
     window.open("https://instagram.com/direct/inbox/", "_blank");
   }
 
@@ -97,8 +100,8 @@ export function InviteModal({
       try {
         await navigator.share({
           title,
-          text: description,
-          url: shareUrl,
+          text: fullShareText,
+          url: PLAY_STORE_URL,
         });
         return;
       } catch (err) {
@@ -106,23 +109,22 @@ export function InviteModal({
       }
     }
 
-    // Snapchat web share attachment URL
-    const snapUrl = `https://www.snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareUrl)}`;
+    const snapUrl = `https://www.snapchat.com/scan?attachmentUrl=${encodeURIComponent(PLAY_STORE_URL)}`;
     window.open(snapUrl, "_blank");
-    toast.success("Opening Snapchat…");
+    toast.success("Opening Snapchat with Play Store link…");
   }
 
   function handleFacebook() {
     const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-      shareUrl,
+      PLAY_STORE_URL,
     )}&quote=${encodeURIComponent(fullShareText)}`;
     window.open(fbUrl, "_blank", "width=600,height=500");
   }
 
   function handleTwitter() {
-    const tweet = encodeURIComponent(`${title}\n\n${description}`);
+    const tweet = encodeURIComponent(`${title}\n\n${description}\n\nDownload:`);
     const twitterUrl = `https://twitter.com/intent/tweet?text=${tweet}&url=${encodeURIComponent(
-      shareUrl,
+      PLAY_STORE_URL,
     )}`;
     window.open(twitterUrl, "_blank", "width=600,height=500");
   }
@@ -132,16 +134,15 @@ export function InviteModal({
       try {
         await navigator.share({
           title,
-          text: description,
-          url: shareUrl,
+          text: fullShareText,
+          url: PLAY_STORE_URL,
         });
         return;
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
       }
     }
-    // Fallback: copy link
-    handleCopy();
+    copyToClipboard(PLAY_STORE_URL, "playstore");
   }
 
   return (
@@ -151,7 +152,7 @@ export function InviteModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-md rounded-3xl p-6 shadow-2xl border transition-all animate-in slide-in-from-bottom duration-200 ${
+        className={`w-full max-w-md rounded-3xl p-6 shadow-2xl border transition-all animate-in slide-in-from-bottom duration-200 max-h-[90vh] overflow-y-auto ${
           isGenZ
             ? "bg-[#0E121E] text-white border-[#222A40] shadow-[0_0_50px_rgba(91,104,246,0.15)]"
             : "bg-background text-ink border-border shadow-2xl"
@@ -167,7 +168,7 @@ export function InviteModal({
                   isGenZ ? "text-[#FFA84A]" : "text-brand-orange"
                 }`}
               >
-                {isGenZ ? "GROW THE CIRCLE ⚡" : "INVITE YOUR FRIENDS · BONDOO"}
+                {isGenZ ? "NOW ON GOOGLE PLAY ⚡" : "OFFICIAL APP ON GOOGLE PLAY"}
               </p>
             </div>
             <h3
@@ -175,10 +176,10 @@ export function InviteModal({
                 isGenZ ? "tracking-tight text-white font-['Plus_Jakarta_Sans',sans-serif]" : "display text-ink"
               }`}
             >
-              Bring friends to <em className="text-primary not-italic">Bondoo</em>
+              Invite to <em className="text-primary not-italic">Bondoo App</em>
             </h3>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Meetups are better with good people. Share with your circle on social media!
+              Share directly to WhatsApp, Insta, Snapchat or copy the direct Play Store install link!
             </p>
           </div>
           <button
@@ -194,7 +195,7 @@ export function InviteModal({
           </button>
         </div>
 
-        {/* Big WhatsApp CTA Button */}
+        {/* Big WhatsApp CTA Button with Play Store Direct Link */}
         <div className="mt-5">
           <button
             type="button"
@@ -202,17 +203,17 @@ export function InviteModal({
             className="w-full flex items-center justify-center gap-2.5 rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold py-3.5 px-4 shadow-lg shadow-[#25D366]/20 active:scale-[0.99] transition cursor-pointer"
           >
             {/* WhatsApp SVG Icon */}
-            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 fill-current shrink-0" viewBox="0 0 24 24">
               <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.275.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.155.57 4.178 1.564 5.923l-1.664 6.077 6.241-1.637c1.706.945 3.668 1.487 5.759 1.487 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z" />
             </svg>
-            <span className="text-sm">Share on WhatsApp</span>
+            <span className="text-sm">Share on WhatsApp (Play Store Link)</span>
           </button>
         </div>
 
-        {/* Social Share Grid (5 major icons + native share) */}
+        {/* Social Share Grid */}
         <div className="mt-5">
           <p className="text-[10px] uppercase font-bold tracking-[0.16em] text-muted-foreground text-center mb-3">
-            Share on social platforms
+            Share install link on social platforms
           </p>
 
           <div className="grid grid-cols-5 gap-2.5">
@@ -255,7 +256,6 @@ export function InviteModal({
               className="flex flex-col items-center gap-1.5 group cursor-pointer"
             >
               <div className="w-12 h-12 rounded-2xl bg-[#FFFC00] text-black flex items-center justify-center shadow-md shadow-[#FFFC00]/20 group-hover:scale-105 active:scale-95 transition">
-                {/* Snapchat Ghost SVG */}
                 <svg className="w-6 h-6 fill-black stroke-black" viewBox="0 0 24 24">
                   <path d="M12.001 2c-3.874 0-6.42 2.859-6.42 6.45 0 .97.348 2.228.375 2.327.042.158-.094.228-.201.258-.519.143-1.492.483-1.892 1.341-.24.515-.121 1.092.355 1.717.38.498.981.821 1.637.887.112.011.164.088.139.183-.174.659-.516 1.716-1.503 2.19-.387.186-.67.433-.67.755 0 .546.772.84 1.558.948.749.103 1.52.062 2.253.308.385.129.742.41 1.05.807.575.742 1.494 1.629 3.318 1.629 1.825 0 2.744-.887 3.319-1.629.308-.397.665-.678 1.05-.807.733-.246 1.504-.205 2.253-.308.786-.108 1.558-.402 1.558-.948 0-.322-.283-.569-.67-.755-.987-.474-1.329-1.531-1.503-2.19-.025-.095.027-.172.139-.183.656-.066 1.257-.389 1.637-.887.476-.625.595-1.202.355-1.717-.4-.858-1.373-1.198-1.892-1.341-.107-.03-.243-.1-.201-.258.027-.099.375-1.357.375-2.327 0-3.591-2.546-6.45-6.42-6.45z" />
                 </svg>
@@ -299,10 +299,89 @@ export function InviteModal({
           </div>
         </div>
 
-        {/* Copy Link Section */}
-        <div className="mt-5">
-          <p className="text-[10px] uppercase font-bold tracking-[0.16em] text-muted-foreground mb-2">
-            Or copy your invite link
+        {/* Direct Play Store Install Card */}
+        <div
+          className={`mt-5 p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 ${
+            isGenZ
+              ? "bg-[#141828] border-indigo-500/30 shadow-[0_0_15px_rgba(91,104,246,0.15)]"
+              : "bg-paper border-border"
+          }`}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Google Play Store Badge Icon */}
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
+              <svg className="w-6 h-6" viewBox="0 0 512 512">
+                <path
+                  fill="#4CAF50"
+                  d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1z"
+                />
+                <path
+                  fill="#FF3D00"
+                  d="M26.2 31.7c-4.2 6.8-6.6 15-6.6 24.3v400c0 9.3 2.4 17.5 6.6 24.3l234.1-224.3L26.2 31.7z"
+                />
+                <path
+                  fill="#FFC107"
+                  d="M325.3 277.7l60.1 60.1L104.6 499l220.7-221.3z"
+                />
+                <path
+                  fill="#1E88E5"
+                  d="M485.4 233.1L385.4 176l-60.1 60.1 60.1 60.1 100-57.1c8.8-5 13.9-14.4 13.9-24.5s-5.1-19.5-13.9-24.5z"
+                />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase font-bold tracking-wider text-[#FFA84A]">
+                Official Android App
+              </p>
+              <p className="text-xs font-bold text-ink dark:text-white truncate">
+                Google Play Store
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                Direct install link for friends
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a
+              href={PLAY_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-muted-foreground hover:text-ink dark:hover:text-white transition"
+              title="Open Play Store"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+            <button
+              type="button"
+              onClick={() => copyToClipboard(PLAY_STORE_URL, "playstore")}
+              className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${
+                copiedType === "playstore"
+                  ? "bg-green-600 text-white"
+                  : isGenZ
+                    ? "bg-[#5B68F6] text-white hover:bg-[#4C58E0]"
+                    : "bg-ink text-background hover:bg-ink/90"
+              }`}
+            >
+              {copiedType === "playstore" ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Link</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Web App Link Copy Section */}
+        <div className="mt-4">
+          <p className="text-[10px] uppercase font-bold tracking-[0.16em] text-muted-foreground mb-1.5">
+            Or share website link (bondooconnect.com)
           </p>
           <div
             className={`flex items-center gap-2 p-1.5 rounded-2xl border transition ${
@@ -315,28 +394,28 @@ export function InviteModal({
               type="text"
               readOnly
               value={shareUrl}
-              className="flex-1 bg-transparent px-3 py-1.5 text-xs font-mono text-muted-foreground truncate outline-none select-all"
+              className="flex-1 bg-transparent px-3 py-1 text-xs font-mono text-muted-foreground truncate outline-none select-all"
             />
             <button
               type="button"
-              onClick={handleCopy}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer shrink-0 ${
-                copied
+              onClick={() => copyToClipboard(shareUrl, "web")}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer shrink-0 ${
+                copiedType === "web"
                   ? "bg-green-600 text-white"
                   : isGenZ
-                    ? "bg-[#5B68F6] hover:bg-[#4C58E0] text-white shadow-md shadow-[#5B68F6]/25"
-                    : "bg-ink hover:bg-ink/90 text-background"
+                    ? "bg-white/10 hover:bg-white/20 text-white"
+                    : "bg-paper border border-border text-ink hover:bg-paper/80"
               }`}
             >
-              {copied ? (
+              {copiedType === "web" ? (
                 <>
                   <Check className="w-3.5 h-3.5" />
-                  <span>Copied!</span>
+                  <span>Copied</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Copy Link</span>
+                  <span>Copy Web</span>
                 </>
               )}
             </button>
