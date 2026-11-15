@@ -26,8 +26,8 @@ function makeFetch(supabaseKey: string, userToken: string): typeof fetch {
 
 /** Supabase client scoped to the MCP caller — RLS runs as that user. */
 export function supabaseForCaller(ctx: ToolContext) {
-  const url = process.env.SUPABASE_URL!;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
+  const url = process.env.SUPABASE_URL || "https://zciyhmzmbfvenvfqvfpb.supabase.co";
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY || "sb_publishable__9ZkkCAFdEYgVUN3USNuBg_aq0xGp88";
   const token = ctx.getToken();
   if (!token) throw new Error("Missing OAuth bearer token");
   return createClient<Database>(url, key, {
