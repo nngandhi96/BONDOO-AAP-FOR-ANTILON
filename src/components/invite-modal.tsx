@@ -22,7 +22,7 @@ const DEFAULT_TEXT =
 export function InviteModal({
   isOpen,
   onClose,
-  themeMode = "zine",
+  themeMode = "editorial",
   shareUrl = WEB_URL,
   title = DEFAULT_TITLE,
   description = DEFAULT_TEXT,
